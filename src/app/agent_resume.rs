@@ -206,7 +206,7 @@ impl App {
         pane_id: crate::layout::PaneId,
         terminal_id: crate::terminal::TerminalId,
         cwd: std::path::PathBuf,
-        plan: crate::agent_resume::AgentResumePlan,
+        mut plan: crate::agent_resume::AgentResumePlan,
         rows: u16,
         cols: u16,
         allow_empty_theme: bool,
@@ -216,6 +216,9 @@ impl App {
             return false;
         }
 
+        if let Some(kind) = crate::detect::parse_agent_label(&plan.agent) {
+            super::agents::apply_auto_mode_defaults(&mut plan.argv, kind, self.state.auto_mode);
+        }
         let Some(resume_command) = shell_command_from_argv(&plan.argv) else {
             tracing::warn!(
                 pane = pane_id.raw(),

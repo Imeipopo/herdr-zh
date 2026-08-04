@@ -246,6 +246,13 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # directory = "~/.herdr/worktrees"
 
 [ui]
+# User-interface language: "en" or "zh-TW".
+# language = "en"
+
+# Use safe automatic permissions for Codex and Claude agents launched or
+# resumed through Herdr. Agents started manually inside a pane are unaffected.
+# auto_mode = false
+
 # Sidebar width (auto-scaled based on workspace names, this sets the default)
 # sidebar_width = 26
 

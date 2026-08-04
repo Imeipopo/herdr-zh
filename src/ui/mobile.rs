@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 
+use super::i18n::{auto_mode_status, tr};
 use super::sidebar::{
     agent_panel_entries, agent_panel_entries_from, grouped_child_display_label,
     next_entry_is_indented_workspace, workspace_list_entries_expanded, AgentPanelEntry,
@@ -290,7 +291,7 @@ pub(crate) fn render_mobile_panel(
 
     let areas = mobile_switcher_areas(app);
     frame.render_widget(
-        Paragraph::new(" switch").style(
+        Paragraph::new(format!(" {}", tr(app.ui_language, "switch"))).style(
             Style::default()
                 .fg(p.text)
                 .bg(p.panel_bg)
@@ -322,13 +323,16 @@ fn render_header_status(
     }
     let p = &app.palette;
     let Some(ws) = app.active.and_then(|idx| app.workspaces.get(idx)) else {
-        frame.render_widget(Paragraph::new(" no workspace"), area);
+        frame.render_widget(
+            Paragraph::new(format!(" {}", tr(app.ui_language, "no workspace"))),
+            area,
+        );
         return;
     };
 
     let (state, seen) = ws.aggregate_state(&app.terminals);
     let (dot, dot_style) = state_icon(state, seen, app.status_indicators, p);
-    let tab_label = mobile_tab_status(ws);
+    let tab_label = mobile_tab_status_for(ws, app.ui_language);
     let row1 = Rect::new(area.x, area.y, area.width, 1);
     let tab_w = display_width_u16(&tab_label)
         .saturating_add(1)
@@ -368,14 +372,31 @@ fn render_header_status(
     }
 }
 
+#[cfg(test)]
 fn mobile_tab_status(ws: &crate::workspace::Workspace) -> String {
+    mobile_tab_status_for(ws, crate::config::UiLanguageConfig::English)
+}
+
+fn mobile_tab_status_for(
+    ws: &crate::workspace::Workspace,
+    language: crate::config::UiLanguageConfig,
+) -> String {
     let tab_label = ws
         .tab_display_name(ws.active_tab)
         .unwrap_or_else(|| (ws.active_tab + 1).to_string());
-    if ws.tabs.len() <= 1 {
-        format!("tab {tab_label}")
+    let tab = if language == crate::config::UiLanguageConfig::TraditionalChinese {
+        "分頁"
     } else {
-        format!("tab {tab_label} · {}/{}", ws.active_tab + 1, ws.tabs.len())
+        "tab"
+    };
+    if ws.tabs.len() <= 1 {
+        format!("{tab} {tab_label}")
+    } else {
+        format!(
+            "{tab} {tab_label} · {}/{}",
+            ws.active_tab + 1,
+            ws.tabs.len()
+        )
     }
 }
 
@@ -392,7 +413,7 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     }
     let label_y = if area.height > 1 { area.y + 1 } else { area.y };
     frame.render_widget(
-        Paragraph::new("switch")
+        Paragraph::new(tr(app.ui_language, "switch"))
             .style(
                 Style::default()
                     .fg(p.text)
@@ -426,7 +447,7 @@ fn render_close_button(app: &AppState, frame: &mut Frame, area: Rect) {
             .set_style(Style::default().fg(p.surface_dim).bg(p.surface0));
     }
     frame.render_widget(
-        Paragraph::new("close")
+        Paragraph::new(tr(app.ui_language, "close"))
             .style(
                 Style::default()
                     .fg(p.overlay1)
@@ -502,8 +523,16 @@ fn render_mobile_switcher_content(
         let title = app
             .agent_view_override
             .as_ref()
-            .map(|view| format!("agents · {}", view.label.as_deref().unwrap_or("filtered")))
-            .unwrap_or_else(|| "agents".to_string());
+            .map(|view| {
+                format!(
+                    "{} · {}",
+                    tr(app.ui_language, "agents"),
+                    view.label
+                        .as_deref()
+                        .unwrap_or(tr(app.ui_language, "filtered"))
+                )
+            })
+            .unwrap_or_else(|| tr(app.ui_language, "agents").to_string());
         render_section_title_at(
             frame,
             viewport,
@@ -523,7 +552,7 @@ fn render_mobile_switcher_content(
                 app.mobile_switcher_scroll,
                 ratatui::style::Color::Reset,
                 Line::from(Span::styled(
-                    "  no matching agents",
+                    format!("  {}", tr(app.ui_language, "no matching agents")),
                     Style::default().fg(p.overlay0).add_modifier(Modifier::DIM),
                 )),
             );
@@ -572,7 +601,7 @@ fn render_mobile_switcher_content(
         content,
         doc_y,
         app.mobile_switcher_scroll,
-        "spaces",
+        tr(app.ui_language, "spaces"),
         p,
     );
     doc_y += 1;
@@ -582,7 +611,7 @@ fn render_mobile_switcher_content(
         content,
         doc_y,
         app.mobile_switcher_scroll,
-        "+ new workspace",
+        &format!("+ {}", tr(app.ui_language, "new workspace")),
         p,
     );
     doc_y += 1;
@@ -642,7 +671,7 @@ fn render_mobile_switcher_content(
         let detail = format!(
             "{detail_prefix}{} · {}",
             ws.branch().unwrap_or_else(|| "shell".into()),
-            mobile_tab_status(ws)
+            mobile_tab_status_for(ws, app.ui_language)
         );
         render_two_line_item(
             frame,
@@ -665,7 +694,11 @@ fn render_mobile_switcher_content(
             content,
             doc_y,
             app.mobile_switcher_scroll,
-            "tabs",
+            if app.ui_language == crate::config::UiLanguageConfig::TraditionalChinese {
+                "分頁"
+            } else {
+                "tabs"
+            },
             p,
         );
         doc_y += 1;
@@ -675,7 +708,7 @@ fn render_mobile_switcher_content(
             content,
             doc_y,
             app.mobile_switcher_scroll,
-            "+ new tab",
+            &format!("+ {}", tr(app.ui_language, "new tab")),
             p,
         );
         doc_y += 1;
@@ -719,14 +752,14 @@ fn render_mobile_switcher_content(
         content,
         doc_y,
         app.mobile_switcher_scroll,
-        "menu",
+        tr(app.ui_language, "menu"),
         p,
     );
     doc_y += 1;
     for label in app.global_menu_labels() {
         if let Some(y) = visible_y(viewport, app.mobile_switcher_scroll, doc_y) {
             frame.render_widget(
-                Paragraph::new(format!("  {label}"))
+                Paragraph::new(format!("  {}", tr(app.ui_language, label)))
                     .style(Style::default().fg(p.overlay1).bg(p.panel_bg)),
                 Rect::new(content.x, y, content.width, 1),
             );
@@ -1012,15 +1045,28 @@ enum SummaryTone {
 
 /// Ordered, non-zero breakdown for the header roll-up: attention states lead
 /// (blocked → done → working → idle). Pure so it can be unit-tested.
+#[cfg(test)]
 fn agent_summary_segments(
     counts: GlobalAgentCounts,
     indicator_style: StatusIndicatorStyle,
 ) -> Vec<(String, SummaryTone)> {
+    agent_summary_segments_for(
+        counts,
+        indicator_style,
+        crate::config::UiLanguageConfig::English,
+    )
+}
+
+fn agent_summary_segments_for(
+    counts: GlobalAgentCounts,
+    indicator_style: StatusIndicatorStyle,
+    language: crate::config::UiLanguageConfig,
+) -> Vec<(String, SummaryTone)> {
     if counts.total() == 0 {
-        return vec![("no agents".to_string(), SummaryTone::Muted)];
+        return vec![(tr(language, "no agents").to_string(), SummaryTone::Muted)];
     }
     if !counts.any_pending() {
-        return vec![("all idle".to_string(), SummaryTone::Muted)];
+        return vec![(tr(language, "all idle").to_string(), SummaryTone::Muted)];
     }
     let mut segments = Vec::new();
     if counts.blocked > 0 {
@@ -1031,7 +1077,7 @@ fn agent_summary_segments(
                 true,
                 Some("◉"),
                 counts.blocked,
-                "blocked",
+                tr(language, "blocked"),
             ),
             SummaryTone::Blocked,
         ));
@@ -1044,7 +1090,7 @@ fn agent_summary_segments(
                 false,
                 Some("●"),
                 counts.done,
-                "done",
+                tr(language, "done"),
             ),
             SummaryTone::Done,
         ));
@@ -1057,7 +1103,7 @@ fn agent_summary_segments(
                 true,
                 None,
                 counts.working,
-                "working",
+                tr(language, "working"),
             ),
             SummaryTone::Working,
         ));
@@ -1070,7 +1116,7 @@ fn agent_summary_segments(
                 true,
                 None,
                 counts.idle,
-                "idle",
+                tr(language, "idle"),
             ),
             SummaryTone::Idle,
         ));
@@ -1120,11 +1166,34 @@ fn fit_summary_segments(
 }
 
 fn agent_summary_line(app: &AppState, p: &Palette, max_width: u16) -> Line<'static> {
-    let segments = agent_summary_segments(global_agent_counts(app), app.status_indicators);
-    let (shown, truncated) = fit_summary_segments(segments, max_width as usize);
+    let auto = auto_mode_status(app.ui_language, app.auto_mode);
+    let auto_width = display_width_u16(&auto) as usize;
+    let segments = agent_summary_segments_for(
+        global_agent_counts(app),
+        app.status_indicators,
+        app.ui_language,
+    );
+    let remaining = (max_width as usize).saturating_sub(1 + auto_width + 3);
+    let (shown, truncated) = fit_summary_segments(segments, remaining);
 
-    let mut spans = vec![Span::styled(" ", Style::default().bg(p.panel_bg))];
-    let mut used = 1usize;
+    let mut spans = vec![
+        Span::styled(" ", Style::default().bg(p.panel_bg)),
+        Span::styled(
+            auto.clone(),
+            Style::default()
+                .fg(if app.auto_mode { p.green } else { p.overlay0 })
+                .bg(p.panel_bg)
+                .add_modifier(Modifier::BOLD),
+        ),
+    ];
+    let mut used = 1usize + auto_width;
+    if !shown.is_empty() && used + 3 <= max_width as usize {
+        spans.push(Span::styled(
+            " · ",
+            Style::default().fg(p.overlay0).bg(p.panel_bg),
+        ));
+        used += 3;
+    }
     for (idx, (text, tone)) in shown.into_iter().enumerate() {
         if idx > 0 {
             spans.push(Span::styled(

@@ -15,6 +15,7 @@ use crate::{
 pub(super) enum SettingsAction {
     SaveTheme(String),
     SaveStatusIndicators(StatusIndicatorStyle),
+    SaveAutoMode(bool),
     SaveSound(bool),
     SaveToastDelivery(ToastDelivery),
     SaveAgentBorderLabels(bool),
@@ -28,6 +29,7 @@ impl App {
             match action {
                 SettingsAction::SaveTheme(name) => self.save_theme(&name),
                 SettingsAction::SaveStatusIndicators(style) => self.save_status_indicators(style),
+                SettingsAction::SaveAutoMode(enabled) => self.save_auto_mode(enabled),
                 SettingsAction::SaveSound(enabled) => self.save_sound(enabled),
                 SettingsAction::SaveToastDelivery(delivery) => self.save_toast_delivery(delivery),
                 SettingsAction::SaveAgentBorderLabels(enabled) => {
@@ -188,6 +190,30 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 state.settings.list.selected = current_theme_index(&state.theme_name);
             }
             KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
+                state.settings.section = SettingsSection::AutoMode;
+                state.settings.list.selected = usize::from(!state.auto_mode);
+            }
+            _ => {
+                if let Some(super::modal::ModalAction::Close) =
+                    super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
+                {
+                    cancel_settings(state);
+                }
+            }
+        },
+        SettingsSection::AutoMode => match key.code {
+            KeyCode::Up | KeyCode::Char('k') | KeyCode::Down | KeyCode::Char('j') => {
+                state.settings.list.selected = 1 - state.settings.list.selected.min(1);
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                let enabled = state.settings.list.selected == 0;
+                return Some(SettingsAction::SaveAutoMode(enabled));
+            }
+            KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
+                state.settings.section = SettingsSection::Indicators;
+                state.settings.list.selected = status_indicator_index(state.status_indicators);
+            }
+            KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
                 state.settings.section = SettingsSection::Sound;
                 state.settings.list.selected = usize::from(!state.sound_enabled());
             }
@@ -212,8 +238,8 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 state.settings.list.selected = toast_delivery_index(state.toast_delivery());
             }
             KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
-                state.settings.section = SettingsSection::Indicators;
-                state.settings.list.selected = status_indicator_index(state.status_indicators);
+                state.settings.section = SettingsSection::AutoMode;
+                state.settings.list.selected = usize::from(!state.auto_mode);
             }
             _ => {
                 if let Some(super::modal::ModalAction::Close) =
@@ -305,6 +331,7 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.list.selected = match section {
         SettingsSection::Theme => current_theme_index(&state.theme_name),
         SettingsSection::Indicators => status_indicator_index(state.status_indicators),
+        SettingsSection::AutoMode => usize::from(!state.auto_mode),
         SettingsSection::Sound => usize::from(!state.sound_enabled()),
         SettingsSection::Toast => toast_delivery_index(state.toast_delivery()),
         SettingsSection::PaneLabels => usize::from(!state.agent_border_labels_enabled()),
@@ -346,7 +373,9 @@ impl AppState {
             } else {
                 0
             };
-            let width = section.label().len() as u16 + 2 + badge_width;
+            let width = crate::ui::display_width_u16(section.localized_label(self.ui_language))
+                + 2
+                + badge_width;
             if col >= x && col < x + width {
                 return Some(*section);
             }
@@ -378,7 +407,7 @@ impl AppState {
                 let idx = scroll + (row - area.y) as usize;
                 (idx < THEME_NAMES.len()).then_some(idx)
             }
-            SettingsSection::Indicators | SettingsSection::Sound => {
+            SettingsSection::Indicators | SettingsSection::AutoMode | SettingsSection::Sound => {
                 let list_y = area.y + 3;
                 if row >= list_y && row < list_y + 2 {
                     Some((row - list_y) as usize)
@@ -416,6 +445,7 @@ impl AppState {
                         SettingsSection::Indicators => {
                             status_indicator_index(self.status_indicators)
                         }
+                        SettingsSection::AutoMode => usize::from(!self.auto_mode),
                         SettingsSection::Sound => usize::from(!self.sound_enabled()),
                         SettingsSection::Toast => toast_delivery_index(self.toast_delivery()),
                         SettingsSection::PaneLabels => {
@@ -435,6 +465,7 @@ impl AppState {
                         SettingsSection::Indicators => Some(SettingsAction::SaveStatusIndicators(
                             status_indicator_for_index(idx),
                         )),
+                        SettingsSection::AutoMode => Some(SettingsAction::SaveAutoMode(idx == 0)),
                         SettingsSection::Sound => {
                             let enabled = idx == 0;
                             Some(SettingsAction::SaveSound(enabled))
@@ -551,6 +582,22 @@ mod tests {
 
         assert_eq!(action, Some(SettingsAction::SaveSound(true)));
         assert!(!state.sound.enabled);
+        assert_eq!(state.mode, Mode::Settings);
+    }
+
+    #[test]
+    fn settings_auto_mode_toggle_returns_save_action() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::AutoMode);
+        state.settings.list.selected = 0;
+
+        let action = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+
+        assert_eq!(action, Some(SettingsAction::SaveAutoMode(true)));
+        assert!(!state.auto_mode);
         assert_eq!(state.mode, Mode::Settings);
     }
 

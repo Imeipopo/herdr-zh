@@ -1229,7 +1229,9 @@ impl AppState {
         let max_item_w = menu
             .items()
             .iter()
-            .map(|item| item.len() as u16)
+            .map(|item| {
+                crate::ui::text::display_width_u16(crate::ui::i18n::tr(self.ui_language, item))
+            })
             .max()
             .unwrap_or(0);
         let menu_w = (max_item_w + 4).max(14).min(screen.width.max(1));

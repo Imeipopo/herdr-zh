@@ -9,6 +9,7 @@ use ratatui::{
 };
 
 use self::tokens::{ResolvedToken, ResolvedTokenKind, SpaceTokenContext};
+use super::i18n::{auto_mode_status, tr};
 use super::scrollbar::{render_scrollbar, should_show_scrollbar};
 use super::status::{state_icon, state_label, state_label_color};
 use super::text::{display_width, display_width_u16, truncate_end};
@@ -78,15 +79,22 @@ pub(crate) fn sidebar_section_divider_rect(area: Rect, split_ratio: f32) -> Rect
     Rect::new(content.x, content.y + ws_h, content.width, 1)
 }
 
-fn agent_panel_sort_label(sort: AgentPanelSort) -> &'static str {
+fn agent_panel_sort_label(
+    sort: AgentPanelSort,
+    language: crate::config::UiLanguageConfig,
+) -> &'static str {
     match sort {
-        AgentPanelSort::Spaces => "grouped",
-        AgentPanelSort::Priority => "priority",
+        AgentPanelSort::Spaces => tr(language, "grouped"),
+        AgentPanelSort::Priority => tr(language, "priority"),
     }
 }
 
-pub(crate) fn agent_panel_toggle_rect(area: Rect, sort: AgentPanelSort) -> Rect {
-    agent_panel_header_label_rect(area, agent_panel_sort_label(sort))
+pub(crate) fn agent_panel_toggle_rect(
+    area: Rect,
+    sort: AgentPanelSort,
+    language: crate::config::UiLanguageConfig,
+) -> Rect {
+    agent_panel_header_label_rect(area, agent_panel_sort_label(sort, language))
 }
 
 fn agent_panel_header_label_rect(area: Rect, label: &str) -> Rect {
@@ -1202,12 +1210,29 @@ fn render_workspace_list(
 
     let list_bottom = area.y + area.height.saturating_sub(1);
     if area.height > 0 {
+        let auto_label = auto_mode_status(app.ui_language, app.auto_mode);
         frame.render_widget(
             Paragraph::new(Line::from(vec![Span::styled(
-                " spaces",
+                format!(" {}", tr(app.ui_language, "spaces")),
                 Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
             )])),
             Rect::new(area.x, area.y, area.width, 1),
+        );
+        let auto_width = display_width_u16(&auto_label).min(area.width);
+        frame.render_widget(
+            Paragraph::new(Span::styled(
+                auto_label,
+                Style::default()
+                    .fg(if app.auto_mode { p.green } else { p.overlay0 })
+                    .add_modifier(Modifier::BOLD),
+            ))
+            .alignment(Alignment::Right),
+            Rect::new(
+                area.x + area.width.saturating_sub(auto_width),
+                area.y,
+                auto_width,
+                1,
+            ),
         );
     }
 
@@ -1378,7 +1403,10 @@ fn render_workspace_list(
     if app.mouse_capture && list_bottom > area.y {
         let new_rect = app.sidebar_new_button_rect();
         frame.render_widget(
-            Paragraph::new(Span::styled(" new", Style::default().fg(p.overlay0))),
+            Paragraph::new(Span::styled(
+                format!(" {}", tr(app.ui_language, "new")),
+                Style::default().fg(p.overlay0),
+            )),
             new_rect,
         );
 
@@ -1389,10 +1417,13 @@ fn render_workspace_list(
                     "● ",
                     Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
                 ),
-                Span::styled("menu", Style::default().fg(p.overlay0)),
+                Span::styled(tr(app.ui_language, "menu"), Style::default().fg(p.overlay0)),
             ])
         } else {
-            Line::from(vec![Span::styled("menu", Style::default().fg(p.overlay0))])
+            Line::from(vec![Span::styled(
+                tr(app.ui_language, "menu"),
+                Style::default().fg(p.overlay0),
+            )])
         };
         frame.render_widget(
             Paragraph::new(menu_line).alignment(Alignment::Right),
@@ -1421,13 +1452,13 @@ fn render_agent_detail(
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![Span::styled(
-            " agents",
+            format!(" {}", tr(app.ui_language, "agents")),
             Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
         )])),
         Rect::new(area.x, area.y + 1, area.width, 1),
     );
     let control_label = active_agent_view_label(app)
-        .unwrap_or_else(|| agent_panel_sort_label(app.agent_panel_sort));
+        .unwrap_or_else(|| agent_panel_sort_label(app.agent_panel_sort, app.ui_language));
     let toggle_rect = agent_panel_header_label_rect(area, control_label);
     if toggle_rect != Rect::default() {
         let color = if app.agent_view_override.is_some() {
@@ -1454,7 +1485,7 @@ fn render_agent_detail(
     }
     if details.is_empty() && app.agent_view_override.is_some() {
         frame.render_widget(
-            Paragraph::new(" no matching agents")
+            Paragraph::new(format!(" {}", tr(app.ui_language, "no matching agents")))
                 .style(Style::default().fg(p.overlay0).add_modifier(Modifier::DIM)),
             Rect::new(body.x, body.y, body.width, 1),
         );

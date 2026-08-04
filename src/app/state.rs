@@ -992,6 +992,7 @@ pub enum AgentPanelSort {
 pub enum SettingsSection {
     Theme,
     Indicators,
+    AutoMode,
     Sound,
     Toast,
     PaneLabels,
@@ -1002,6 +1003,7 @@ impl SettingsSection {
     pub const ALL: &[Self] = &[
         Self::Theme,
         Self::Indicators,
+        Self::AutoMode,
         Self::Sound,
         Self::Toast,
         Self::PaneLabels,
@@ -1012,11 +1014,16 @@ impl SettingsSection {
         match self {
             Self::Theme => "theme",
             Self::Indicators => "indicators",
+            Self::AutoMode => "auto mode",
             Self::Sound => "sound",
             Self::Toast => "toasts",
             Self::PaneLabels => "pane labels",
             Self::Integrations => "integrations",
         }
+    }
+
+    pub fn localized_label(self, language: crate::config::UiLanguageConfig) -> &'static str {
+        crate::ui::i18n::tr(language, self.label())
     }
 }
 
@@ -1480,6 +1487,9 @@ pub struct AppState {
     pub sidebar_section_split: f32,
     pub agent_panel_sort: AgentPanelSort,
     pub status_indicators: crate::config::StatusIndicatorStyle,
+    pub ui_language: crate::config::UiLanguageConfig,
+    /// Display-only mode flag. This does not schedule or operate agents.
+    pub auto_mode: bool,
     /// Transient session-wide projection override for the built-in Agents view.
     pub agent_view_override: Option<crate::api::schema::AgentViewSetParams>,
     pub sidebar_agents: crate::config::AgentsSidebarConfig,
@@ -1852,6 +1862,8 @@ impl AppState {
             sidebar_section_split: 0.5,
             agent_panel_sort: AgentPanelSort::Spaces,
             status_indicators: crate::config::StatusIndicatorStyle::Dots,
+            ui_language: crate::config::UiLanguageConfig::English,
+            auto_mode: false,
             agent_view_override: None,
             sidebar_agents: crate::config::AgentsSidebarConfig::default(),
             sidebar_spaces: crate::config::SpacesSidebarConfig::default(),

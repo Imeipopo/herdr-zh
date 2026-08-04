@@ -1,0 +1,19 @@
+herdr-zh
+
+This software is a modified version of Herdr:
+https://github.com/herdrdev/herdr
+
+The Traditional Chinese fork was initially based on upstream commit:
+1997b88b3fa45f838d44e69dcebde8acf33899fc
+
+Herdr is distributed under the Apache License, Version 2.0. A copy of the
+license is included in the LICENSE file.
+
+Modifications in herdr-zh include Traditional Chinese user-interface support
+and an optional safe automatic mode for Herdr-managed Codex and Claude Code
+launches and resumes. These modifications are maintained by Imeipopo.
+
+herdr-zh is an unofficial community derivative and is not an official Herdr
+release. The Herdr name, logo, and upstream materials remain the property of
+their respective rights holders. No endorsement by the upstream project is
+implied.

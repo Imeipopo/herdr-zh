@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 
+use super::i18n::tr;
 use super::widgets::{panel_contrast_fg, render_panel_shell};
 use crate::app::AppState;
 
@@ -244,13 +245,14 @@ pub(super) fn render_global_launcher_menu(app: &AppState, frame: &mut Frame) {
                 .add_modifier(Modifier::BOLD)
         };
 
+        let label = tr(app.ui_language, item);
         let line = if app.global_menu_item_has_badge(item) {
             Line::from(vec![
                 Span::styled(" ●", badge_style),
-                Span::styled(format!(" {item} "), item_style),
+                Span::styled(format!(" {label} "), item_style),
             ])
         } else {
-            Line::from(Span::styled(format!(" {item} "), item_style))
+            Line::from(Span::styled(format!(" {label} "), item_style))
         };
         frame.render_widget(Paragraph::new(line).alignment(Alignment::Left), rect);
     }
@@ -299,7 +301,7 @@ pub(super) fn render_context_menu(app: &AppState, frame: &mut Frame) {
     let items: Vec<ListItem> = menu
         .items()
         .iter()
-        .map(|item| ListItem::new(Line::from(*item)))
+        .map(|item| ListItem::new(Line::from(tr(app.ui_language, item))))
         .collect();
     let list = List::new(items)
         .style(Style::default().fg(p.text))
@@ -312,4 +314,86 @@ pub(super) fn render_context_menu(app: &AppState, frame: &mut Frame) {
         .highlight_symbol(" ");
     let mut state = ListState::default().with_selected(Some(menu.list.highlighted));
     frame.render_stateful_widget(list, inner, &mut state);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::{ContextMenuKind, ContextMenuState, MenuListState};
+    use crate::config::UiLanguageConfig;
+    use ratatui::{backend::TestBackend, Terminal};
+
+    fn rendered_text(terminal: &Terminal<TestBackend>) -> String {
+        let buffer = terminal.backend().buffer();
+        let area = buffer.area;
+        (0..area.height)
+            .map(|row| {
+                (0..area.width)
+                    .map(|col| buffer[(col, row)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn chinese_app() -> AppState {
+        let mut app = AppState::test_new();
+        app.ui_language = UiLanguageConfig::TraditionalChinese;
+        app.view.sidebar_rect = Rect::new(0, 0, 26, 28);
+        app.view.terminal_area = Rect::new(26, 0, 64, 28);
+        app
+    }
+
+    #[test]
+    fn traditional_chinese_global_menu_renders_localized_actions() {
+        let app = chinese_app();
+        let mut terminal = Terminal::new(TestBackend::new(90, 28)).unwrap();
+        terminal
+            .draw(|frame| render_global_launcher_menu(&app, frame))
+            .unwrap();
+
+        let text = rendered_text(&terminal);
+        let compact: String = text.chars().filter(|ch| !ch.is_whitespace()).collect();
+        for label in ["設定", "快捷鍵", "重新載入設定", "分離"] {
+            assert!(compact.contains(label), "missing {label:?} in:\n{text}");
+        }
+    }
+
+    #[test]
+    fn traditional_chinese_pane_context_menu_renders_without_clipping() {
+        let mut app = chinese_app();
+        app.context_menu = Some(ContextMenuState {
+            kind: ContextMenuKind::Pane {
+                ws_idx: 0,
+                tab_idx: 0,
+                pane_id: crate::layout::PaneId::from_raw(1),
+                source_pane_id: Some(crate::layout::PaneId::from_raw(2)),
+                has_manual_label: true,
+            },
+            x: 2,
+            y: 2,
+            list: MenuListState::new(0),
+        });
+        let expected_width = crate::ui::text::display_width_u16("與目前窗格交換") + 4;
+        assert!(app.context_menu_rect().unwrap().width >= expected_width);
+
+        let mut terminal = Terminal::new(TestBackend::new(90, 28)).unwrap();
+        terminal
+            .draw(|frame| render_context_menu(&app, frame))
+            .unwrap();
+
+        let text = rendered_text(&terminal);
+        let compact: String = text.chars().filter(|ch| !ch.is_whitespace()).collect();
+        for label in [
+            "重新命名窗格",
+            "清除窗格名稱",
+            "與目前窗格交換",
+            "向右分割",
+            "向下分割",
+            "縮放窗格",
+            "關閉窗格",
+        ] {
+            assert!(compact.contains(label), "missing {label:?} in:\n{text}");
+        }
+    }
 }

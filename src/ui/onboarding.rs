@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 
+use super::i18n::tr;
 use super::widgets::{
     action_button_width, modal_stack_areas, panel_contrast_fg, render_action_button,
     render_modal_shell,
@@ -56,15 +57,30 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
         header_rows[0],
     );
     frame.render_widget(
-        Paragraph::new("  terminal workspace manager for coding agents")
-            .style(Style::default().fg(app.palette.overlay0)),
+        Paragraph::new(format!(
+            "  {}",
+            tr(
+                app.ui_language,
+                "terminal workspace manager for coding agents"
+            )
+        ))
+        .style(Style::default().fg(app.palette.overlay0)),
         header_rows[1],
     );
 
     frame.render_widget(
-        Paragraph::new(
-            "  this is a mouse-first terminal.\n  click the sidebar to switch workspaces, drag pane\n  borders to resize, right-click for context menus.",
-        )
+        Paragraph::new(format!(
+            "  {}\n  {}\n  {}",
+            tr(app.ui_language, "this is a mouse-first terminal."),
+            tr(
+                app.ui_language,
+                "click the sidebar to switch workspaces, drag pane"
+            ),
+            tr(
+                app.ui_language,
+                "borders to resize, right-click for context menus."
+            )
+        ))
         .style(Style::default().fg(app.palette.overlay1)),
         content_rows[0],
     );
@@ -78,7 +94,7 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            " enters prefix mode · ",
+            format!(" {} · ", tr(app.ui_language, "enters prefix mode")),
             Style::default().fg(app.palette.overlay1),
         ),
         Span::styled(
@@ -88,15 +104,21 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            " shows keybinds and settings",
+            format!(" {}", tr(app.ui_language, "shows keybinds and settings")),
             Style::default().fg(app.palette.overlay1),
         ),
     ]);
     frame.render_widget(Paragraph::new(key_line), content_rows[2]);
 
     frame.render_widget(
-        Paragraph::new("  next: install optional agent integrations for more reliable state")
-            .style(Style::default().fg(app.palette.overlay1)),
+        Paragraph::new(format!(
+            "  {}",
+            tr(
+                app.ui_language,
+                "next: install optional agent integrations for more reliable state"
+            )
+        ))
+        .style(Style::default().fg(app.palette.overlay1)),
         content_rows[3],
     );
 
@@ -105,7 +127,7 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
         frame,
         continue_rect,
         Some("↵"),
-        "continue",
+        tr(app.ui_language, "continue"),
         Style::default()
             .fg(panel_contrast_fg(&app.palette))
             .bg(app.palette.accent)

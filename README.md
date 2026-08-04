@@ -1,87 +1,75 @@
-# herdr
-
+# herdr-zh
 
 <p align="center">
-  <img src="assets/logo.png" alt="herdr" width="100" />
+  <img src="assets/logo.png" alt="herdr-zh" width="100" />
 </p>
 
 <p align="center">
-  <a href="https://herdr.dev">herdr.dev</a> · <a href="#install">install</a> · <a href="https://herdr.dev/docs/quick-start/">quick start</a> · <a href="https://herdr.dev/docs/">docs</a> · <a href="#sponsors">sponsors</a>
-</p>
-
-<p align="center">
-  English · <a href="README.zh-CN.md">简体中文</a>
+  Herdr 的非官方繁體中文版本
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-666666?labelColor=333333" alt="Apache 2.0 license" /></a>
-  <a href="https://github.com/herdrdev/herdr/releases"><img src="https://img.shields.io/github/downloads/herdrdev/herdr/total?labelColor=333333&color=666666" alt="total GitHub release downloads" /></a>
-  <a href="https://github.com/herdrdev/herdr/stargazers"><img src="https://img.shields.io/github/stars/herdrdev/herdr?labelColor=333333&color=666666&logo=github" alt="GitHub stars" /></a>
-  <a href="https://github.com/herdrdev/herdr/releases/latest"><img src="https://img.shields.io/github/v/release/herdrdev/herdr?label=release&labelColor=333333&color=666666" alt="latest stable release" /></a>
-  <a href="https://formulae.brew.sh/formula/herdr"><img src="https://img.shields.io/homebrew/v/herdr?label=homebrew&labelColor=333333&color=666666" alt="Homebrew version" /></a>
-  <a href="https://x.com/herdrdev"><img src="https://img.shields.io/badge/follow-%40herdrdev-000000?logo=x&logoColor=white" alt="follow @herdrdev on X" /></a>
+  <a href="https://github.com/herdrdev/herdr"><img src="https://img.shields.io/badge/upstream-herdrdev%2Fherdr-666666?labelColor=333333&logo=github" alt="upstream herdrdev/herdr" /></a>
 </p>
 
----
+> [!IMPORTANT]
+> `herdr-zh` 是由社群維護的非官方衍生版本，並非 Herdr 官方發行版。原始專案為 [herdrdev/herdr](https://github.com/herdrdev/herdr)，本專案保留其 [Apache License 2.0](LICENSE) 授權與完整 Git 歷史。
 
-https://github.com/user-attachments/assets/043ec09f-4bdd-41d5-aee0-8fda6b83e267
+Herdr 是在終端機中管理 AI 程式代理的工作空間工具。`herdr-zh` 在保留原有功能的基礎上，加入繁體中文介面與可切換的安全自動模式。
 
-**agent multiplexer that lives in your terminal.**
+## 這個版本增加了什麼
 
-- **every agent at a glance** — blocked, working, done. real terminal views, not a wrapped interpretation.
-- **detach, agents keep running** — reattach from any terminal, or over ssh. sessions survive restarts.
-- **agents can use herdr too** — a pure socket api: agents spawn panes, read output, wait on each other. [agent skill →](https://herdr.dev/docs/agent-skill/)
-- **keyboard and mouse, both first-class** — tmux-style prefix keys *and* click, drag, split. pick per moment, not per tool.
-- **plugins** — extend panes and workflows. [browse the marketplace →](https://herdr.dev/plugins/)
-- **one rust binary, no electron** — runs in whatever terminal you already use.
+- 主要介面、設定、全域選單、右鍵選單與操作對話框繁體中文化。
+- 主題選單加入繁中功能名稱與「深色／淺色」標示。
+- 介面顯示並可切換「自動模式：開／關」。
+- Herdr 啟動或恢復 Codex 時，安全自動模式使用 `workspace-write` 與 `on-request`。
+- Herdr 啟動或恢復 Claude Code 時，安全自動模式使用 `permission-mode auto`。
+- 保留英文介面，可在設定檔切換語言。
 
----
+安全自動模式不會使用跳過權限檢查的選項，也不會影響已在執行中的代理，或你在窗格內手動輸入的 `codex`／`claude` 指令。
 
-## install
+## 建置
 
-```bash
-curl -fsSL https://herdr.dev/install.sh | sh
-```
-
-or `brew install herdr` · `mise use -g herdr` · windows beta: `powershell -ExecutionPolicy Bypass -c "irm https://herdr.dev/install.ps1 | iex"` · [binaries](https://github.com/herdrdev/herdr/releases)
-
-then start it where the work lives:
+需要 Rust 與專案指定的工具鏈。完整依賴與平台說明請參考[上游文件](https://herdr.dev/docs/)。
 
 ```bash
-herdr
-```
-
-run your agents, split panes, walk away. `ctrl+b q` detaches, `herdr` reattaches. [quick start →](https://herdr.dev/docs/quick-start/)
-
-## docs
-
-everything lives at [herdr.dev/docs](https://herdr.dev/docs/): [quick start](https://herdr.dev/docs/quick-start/) · [concepts](https://herdr.dev/docs/concepts/) · [supported agents](https://herdr.dev/docs/agents/) · [keyboard](https://herdr.dev/docs/keyboard/) · [configuration](https://herdr.dev/docs/configuration/) · [session state](https://herdr.dev/docs/session-state/) · [remote](https://herdr.dev/docs/persistence-remote/) · [integrations](https://herdr.dev/docs/integrations/) · [plugins](https://herdr.dev/docs/plugins/) · [socket api](https://herdr.dev/docs/socket-api/)
-
-## sponsors
-
-herdr is built full-time, in the open. sponsoring directly funds development, stability, and the path to a real agent runtime.
-
-### gold
-
-<a href="https://terminaltrove.com/"><img src="assets/sponsors/terminal-trove.png" alt="Terminal Trove" width="200" /></a>
-
-[**→ become a sponsor**](https://github.com/sponsors/ogulcancelik) · enterprise / partnership: hey@herdr.dev · see [SPONSORS.md](./SPONSORS.md) for tiers. thank you 🐑
-
-## agent instructions
-
-if you are an ai agent helping with this repository, read [`AGENTS.md`](./AGENTS.md) before making changes and read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening issues or PRs.
-
-## development
-
-```bash
-git clone https://github.com/herdrdev/herdr
-cd herdr
+git clone https://github.com/Imeipopo/herdr-zh.git
+cd herdr-zh
 cargo build --release
-
-just test        # unit tests
-just check       # formatting, tests, and maintenance checks
+./target/release/herdr
 ```
 
-## license
+若電腦已安裝官方版 Herdr，建議先直接執行本專案的建置產物，避免覆蓋原本的 `herdr` 指令。
 
-Herdr is licensed under the [Apache License 2.0](LICENSE).
+## 繁中與自動模式設定
+
+在 Herdr 設定檔加入：
+
+```toml
+[ui]
+language = "zh-TW"
+auto_mode = true
+```
+
+也可以在繁中介面的「設定 → 自動模式」隨時切換，變更會保存到設定檔。
+
+## Herdr 原有功能
+
+- 同時查看各個代理的工作、等待與完成狀態。
+- 分離終端後代理持續執行，稍後可重新連線。
+- 支援鍵盤、滑鼠、分割窗格、遠端連線、外掛與 socket API。
+- 單一 Rust 執行檔，不依賴 Electron。
+
+使用方式與完整功能請閱讀 [Herdr 官方文件](https://herdr.dev/docs/)。上游原始碼、問題回報與官方版本位於 [herdrdev/herdr](https://github.com/herdrdev/herdr)。
+
+## 來源與授權
+
+本專案衍生自：
+
+- 專案：Herdr
+- 上游原始碼：[https://github.com/herdrdev/herdr](https://github.com/herdrdev/herdr)
+- 建立本繁中版本時的基準提交：`1997b88b3fa45f838d44e69dcebde8acf33899fc`
+- 上游授權：[Apache License 2.0](LICENSE)
+
+繁中介面與安全自動模式是本衍生版本的修改。更完整的來源聲明請見 [NOTICE](NOTICE)。Herdr 名稱、標誌與上游內容的權利歸其各自權利人所有；本專案不代表 Herdr 官方背書。

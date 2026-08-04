@@ -192,6 +192,7 @@ impl App {
 
         let mut argv = vec![crate::detect::interactive_agent_executable(kind).to_string()];
         argv.extend(params.args);
+        apply_auto_mode_defaults(&mut argv, kind, self.state.auto_mode);
         let command = crate::platform::interactive_shell_command(&argv, &shell_name)
             .ok_or(AgentStartError::InvalidArgument)?;
         let bytes = crate::app::api_helpers::encode_api_submission(runtime, &command);
@@ -439,6 +440,31 @@ fn live_runtime_agent(runtime: &crate::terminal::TerminalRuntime) -> Option<crat
         })
 }
 
+/// Apply safe, agent-specific automatic permission defaults to Herdr-managed
+/// launches. Defaults are inserted before caller arguments so an explicit
+/// per-launch choice remains the final authority.
+pub(super) fn apply_auto_mode_defaults(
+    argv: &mut Vec<String>,
+    kind: crate::detect::Agent,
+    enabled: bool,
+) {
+    if !enabled || argv.is_empty() {
+        return;
+    }
+
+    let defaults: &[&str] = match kind {
+        crate::detect::Agent::Claude => &["--permission-mode", "auto"],
+        crate::detect::Agent::Codex => &[
+            "--sandbox",
+            "workspace-write",
+            "--ask-for-approval",
+            "on-request",
+        ],
+        _ => return,
+    };
+    argv.splice(1..1, defaults.iter().map(|arg| (*arg).to_string()));
+}
+
 pub(super) enum AgentStartError {
     InvalidName,
     UnsupportedKind(String),
@@ -467,7 +493,7 @@ pub(super) enum AgentRenameError {
 
 #[cfg(test)]
 mod tests {
-    use super::valid_agent_name;
+    use super::{apply_auto_mode_defaults, valid_agent_name};
 
     #[test]
     fn agent_names_use_a_small_cli_safe_grammar() {
@@ -486,5 +512,57 @@ mod tests {
         ] {
             assert!(!valid_agent_name(name), "expected {name:?} to be invalid");
         }
+    }
+
+    #[test]
+    fn auto_mode_adds_safe_codex_defaults_before_explicit_args() {
+        let mut argv = vec![
+            "codex".to_string(),
+            "--ask-for-approval".to_string(),
+            "never".to_string(),
+        ];
+
+        apply_auto_mode_defaults(&mut argv, crate::detect::Agent::Codex, true);
+
+        assert_eq!(
+            argv,
+            [
+                "codex",
+                "--sandbox",
+                "workspace-write",
+                "--ask-for-approval",
+                "on-request",
+                "--ask-for-approval",
+                "never",
+            ]
+        );
+    }
+
+    #[test]
+    fn auto_mode_adds_claude_permission_mode() {
+        let mut argv = vec![
+            "claude".to_string(),
+            "--model".to_string(),
+            "sonnet".to_string(),
+        ];
+
+        apply_auto_mode_defaults(&mut argv, crate::detect::Agent::Claude, true);
+
+        assert_eq!(
+            argv,
+            ["claude", "--permission-mode", "auto", "--model", "sonnet"]
+        );
+    }
+
+    #[test]
+    fn disabled_auto_mode_and_other_agents_keep_argv_unchanged() {
+        let original = vec!["codex".to_string(), "--search".to_string()];
+        let mut disabled = original.clone();
+        apply_auto_mode_defaults(&mut disabled, crate::detect::Agent::Codex, false);
+        assert_eq!(disabled, original);
+
+        let mut other = vec!["gemini".to_string()];
+        apply_auto_mode_defaults(&mut other, crate::detect::Agent::Gemini, true);
+        assert_eq!(other, ["gemini"]);
     }
 }

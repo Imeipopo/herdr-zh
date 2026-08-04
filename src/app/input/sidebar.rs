@@ -219,7 +219,8 @@ impl AppState {
                 } else {
                     0
                 };
-                label.chars().count() as u16 + badge_width
+                crate::ui::text::display_width_u16(crate::ui::i18n::tr(self.ui_language, label))
+                    + badge_width
             })
             .max()
             .unwrap_or(8)
@@ -474,7 +475,11 @@ impl AppState {
             self.view.sidebar_rect,
             self.sidebar_section_split,
         );
-        let rect = crate::ui::agent_panel_toggle_rect(detail_area, self.agent_panel_sort);
+        let rect = crate::ui::agent_panel_toggle_rect(
+            detail_area,
+            self.agent_panel_sort,
+            self.ui_language,
+        );
         rect.width > 0
             && col >= rect.x
             && col < rect.x + rect.width
@@ -856,7 +861,11 @@ mod tests {
             app.state.view.sidebar_rect,
             app.state.sidebar_section_split,
         );
-        let toggle = crate::ui::agent_panel_toggle_rect(detail_area, app.state.agent_panel_sort);
+        let toggle = crate::ui::agent_panel_toggle_rect(
+            detail_area,
+            app.state.agent_panel_sort,
+            app.state.ui_language,
+        );
         app.handle_mouse(mouse(
             MouseEventKind::Down(MouseButton::Left),
             toggle.x,

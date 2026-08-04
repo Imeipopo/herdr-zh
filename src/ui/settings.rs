@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 
+use super::i18n::tr;
 use super::widgets::{
     action_button_row_rects, centered_popup_rect, modal_stack_areas, panel_contrast_fg,
     render_action_button, render_modal_choice_list, render_panel_shell, ActionButtonSpec,
@@ -57,7 +58,7 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![Span::styled(
-            " settings",
+            format!(" {}", tr(app.ui_language, "settings")),
             Style::default().fg(p.text).add_modifier(Modifier::BOLD),
         )])),
         header_rows[0],
@@ -70,10 +71,10 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
                     "● ",
                     Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
                 ),
-                Span::raw(section.label()),
+                Span::raw(section.localized_label(app.ui_language)),
             ])
         } else {
-            Line::from(section.label())
+            Line::from(section.localized_label(app.ui_language))
         }
     });
     let tabs = Tabs::new(tab_labels)
@@ -110,11 +111,20 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
             render_modal_choice_list(
                 frame,
                 content_area,
-                "agent status indicators",
-                "choose color dots or distinct symbols for each state",
+                tr(app.ui_language, "agent status indicators"),
+                tr(
+                    app.ui_language,
+                    "choose color dots or distinct symbols for each state",
+                ),
                 &[
-                    ("color dots  ● ● ● ○ ·", StatusIndicatorStyle::Dots),
-                    ("distinct symbols  × ◐ ✓ ○ ·", StatusIndicatorStyle::Symbols),
+                    (
+                        tr(app.ui_language, "color dots  ● ● ● ○ ·"),
+                        StatusIndicatorStyle::Dots,
+                    ),
+                    (
+                        tr(app.ui_language, "distinct symbols  × ◐ ✓ ○ ·"),
+                        StatusIndicatorStyle::Symbols,
+                    ),
                 ],
                 app.status_indicators,
                 app.settings.list.selected,
@@ -122,13 +132,32 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
                 1,
             );
         }
+        SettingsSection::AutoMode => {
+            render_settings_toggle(
+                frame,
+                content_area,
+                p,
+                app.ui_language,
+                tr(app.ui_language, "automatic mode"),
+                tr(
+                    app.ui_language,
+                    "use safe auto permissions for codex and claude agents started by herdr",
+                ),
+                app.auto_mode,
+                app.settings.list.selected,
+            );
+        }
         SettingsSection::Sound => {
             render_settings_toggle(
                 frame,
                 content_area,
                 p,
-                "sound alerts",
-                "play sounds when agents change state in background",
+                app.ui_language,
+                tr(app.ui_language, "sound alerts"),
+                tr(
+                    app.ui_language,
+                    "play sounds when agents change state in background",
+                ),
                 app.sound_enabled(),
                 app.settings.list.selected,
             );
@@ -137,13 +166,16 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
             render_modal_choice_list(
                 frame,
                 content_area,
-                "notification popups",
-                "choose where background popup notifications should appear",
+                tr(app.ui_language, "notification popups"),
+                tr(
+                    app.ui_language,
+                    "choose where background popup notifications should appear",
+                ),
                 &[
-                    ("off", ToastDelivery::Off),
-                    ("inside herdr", ToastDelivery::Herdr),
-                    ("via terminal", ToastDelivery::Terminal),
-                    ("via system", ToastDelivery::System),
+                    (tr(app.ui_language, "off"), ToastDelivery::Off),
+                    (tr(app.ui_language, "inside herdr"), ToastDelivery::Herdr),
+                    (tr(app.ui_language, "via terminal"), ToastDelivery::Terminal),
+                    (tr(app.ui_language, "via system"), ToastDelivery::System),
                 ],
                 app.toast_delivery(),
                 app.settings.list.selected,
@@ -156,8 +188,12 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
                 frame,
                 content_area,
                 p,
-                "agent border labels",
-                "show detected agent names in split pane borders",
+                app.ui_language,
+                tr(app.ui_language, "agent border labels"),
+                tr(
+                    app.ui_language,
+                    "show detected agent names in split pane borders",
+                ),
                 app.agent_border_labels_enabled(),
                 app.settings.list.selected,
             );
@@ -170,7 +206,10 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
     if let Some(footer_area) = stack.footer {
         let footer_rows = Layout::vertical([Constraint::Length(1), Constraint::Length(1)])
             .areas::<2>(footer_area);
-        let primary_label = settings_primary_button_label(app.settings.section);
+        let primary_label = tr(
+            app.ui_language,
+            settings_primary_button_label(app.settings.section),
+        );
         let show_primary = settings_show_primary_action(app);
         let (apply_rect, close_rect) =
             settings_button_rects(inner, app.settings.section, show_primary);
@@ -190,7 +229,7 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
             frame,
             close_rect,
             Some("esc"),
-            "close",
+            tr(app.ui_language, "close"),
             Style::default()
                 .fg(p.text)
                 .bg(p.surface0)
@@ -200,9 +239,15 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
         frame.render_widget(
             Paragraph::new(Line::from(vec![
                 Span::styled(" ↑↓", Style::default().fg(p.overlay0)),
-                Span::styled(" select  ", Style::default().fg(p.overlay1)),
+                Span::styled(
+                    format!(" {}  ", tr(app.ui_language, "select")),
+                    Style::default().fg(p.overlay1),
+                ),
                 Span::styled("tab", Style::default().fg(p.overlay0)),
-                Span::styled(" section", Style::default().fg(p.overlay1)),
+                Span::styled(
+                    format!(" {}", tr(app.ui_language, "section")),
+                    Style::default().fg(p.overlay1),
+                ),
             ])),
             footer_rows[0],
         );
@@ -318,14 +363,15 @@ fn render_settings_integrations(app: &AppState, frame: &mut Frame, area: Rect) {
     .areas::<6>(area);
 
     frame.render_widget(
-        Paragraph::new("agent integrations")
+        Paragraph::new(tr(app.ui_language, "agent integrations"))
             .style(Style::default().fg(p.text).add_modifier(Modifier::BOLD)),
         rows[0],
     );
     frame.render_widget(
-        Paragraph::new(
+        Paragraph::new(tr(
+            app.ui_language,
             "let agents report state directly instead of relying only on process detection",
-        )
+        ))
         .style(Style::default().fg(p.overlay1))
         .wrap(ratatui::widgets::Wrap { trim: false }),
         rows[1],
@@ -381,7 +427,10 @@ fn render_settings_theme(app: &AppState, frame: &mut Frame, area: Rect) {
                 == app.theme_name.to_lowercase().replace([' ', '_'], "-");
             let marker = if is_current { " ✓" } else { "" };
             ListItem::new(Line::from(vec![
-                Span::styled(*name, Style::default().fg(p.subtext0)),
+                Span::styled(
+                    super::i18n::theme_name(app.ui_language, name),
+                    Style::default().fg(p.subtext0),
+                ),
                 Span::styled(marker, Style::default().fg(p.green)),
             ]))
         })
@@ -405,6 +454,7 @@ fn render_settings_toggle(
     frame: &mut Frame,
     area: Rect,
     p: &Palette,
+    language: crate::config::UiLanguageConfig,
     title: &str,
     description: &str,
     current_value: bool,
@@ -415,10 +465,84 @@ fn render_settings_toggle(
         area,
         title,
         description,
-        &[("on", true), ("off", false)],
+        &[(tr(language, "on"), true), (tr(language, "off"), false)],
         current_value,
         selected_idx,
         p,
         1,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::SettingsSection;
+    use crate::config::UiLanguageConfig;
+    use ratatui::{backend::TestBackend, Terminal};
+
+    fn rendered_text(terminal: &Terminal<TestBackend>) -> String {
+        let buffer = terminal.backend().buffer();
+        let area = buffer.area;
+        (0..area.height)
+            .map(|row| {
+                (0..area.width)
+                    .map(|col| buffer[(col, row)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn traditional_chinese_auto_mode_settings_render_on_and_off_choices() {
+        let mut app = AppState::test_new();
+        app.ui_language = UiLanguageConfig::TraditionalChinese;
+        app.auto_mode = true;
+        app.mode = crate::app::Mode::Settings;
+        app.settings.section = SettingsSection::AutoMode;
+
+        let mut terminal = Terminal::new(TestBackend::new(90, 28)).unwrap();
+        terminal
+            .draw(|frame| render_settings_overlay(&app, frame, frame.area()))
+            .unwrap();
+
+        let text = rendered_text(&terminal);
+        // TestBackend stores the trailing cell of each wide CJK glyph as a
+        // space, so compare the rendered content with whitespace removed.
+        let compact: String = text.chars().filter(|ch| !ch.is_whitespace()).collect();
+        assert!(compact.contains("設定"), "rendered text:\n{text}");
+        assert!(compact.contains("自動模式"), "rendered text:\n{text}");
+        assert!(
+            compact.contains("Herdr啟動或恢復的Codex、Claude將使用安全自動權限"),
+            "rendered text:\n{text}"
+        );
+        assert!(compact.contains("開啟"), "rendered text:\n{text}");
+        assert!(compact.contains("關閉"), "rendered text:\n{text}");
+    }
+
+    #[test]
+    fn traditional_chinese_theme_menu_labels_terminal_and_variants() {
+        let mut app = AppState::test_new();
+        app.ui_language = UiLanguageConfig::TraditionalChinese;
+        app.mode = crate::app::Mode::Settings;
+        app.settings.section = SettingsSection::Theme;
+
+        let mut terminal = Terminal::new(TestBackend::new(90, 32)).unwrap();
+        terminal
+            .draw(|frame| render_settings_overlay(&app, frame, frame.area()))
+            .unwrap();
+
+        let text = rendered_text(&terminal);
+        let compact: String = text.chars().filter(|ch| !ch.is_whitespace()).collect();
+        assert!(compact.contains("主題"), "rendered text:\n{text}");
+        assert!(compact.contains("跟隨終端機配色"), "rendered text:\n{text}");
+        assert!(
+            compact.contains("Catppuccin（深色）"),
+            "rendered text:\n{text}"
+        );
+        assert!(
+            compact.contains("Gruvbox（淺色）"),
+            "rendered text:\n{text}"
+        );
+    }
 }

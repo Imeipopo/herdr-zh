@@ -402,6 +402,7 @@ impl App {
                         SettingsAction::SaveStatusIndicators(style) => {
                             self.save_status_indicators(style)
                         }
+                        SettingsAction::SaveAutoMode(enabled) => self.save_auto_mode(enabled),
                         SettingsAction::SaveSound(enabled) => self.save_sound(enabled),
                         SettingsAction::SaveToastDelivery(delivery) => {
                             self.save_toast_delivery(delivery)

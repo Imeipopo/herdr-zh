@@ -3,10 +3,10 @@ name = "herdr"
 version = "0.8.0"
 edition = "2021"
 build = "build.rs"
-description = "terminal workspace manager for AI coding agents"
+description = "Traditional Chinese community edition of Herdr"
 license = "Apache-2.0"
-repository = "https://github.com/herdrdev/herdr"
-homepage = "https://herdr.dev"
+repository = "https://github.com/Imeipopo/herdr-zh"
+homepage = "https://github.com/Imeipopo/herdr-zh"
 keywords = ["terminal", "tui", "ai", "agents", "multiplexer"]
 categories = ["command-line-utilities"]
 include = [
@@ -16,6 +16,7 @@ include = [
     "skills/herdr/SKILL.md",
     "README.md",
     "LICENSE",
+    "NOTICE",
     "Cargo.toml",
 ]
 

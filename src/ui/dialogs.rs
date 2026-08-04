@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 
+use super::i18n::tr;
 use super::text::{display_width_u16, truncate_end};
 use super::widgets::{
     action_button_row_rects, centered_popup_rect, panel_contrast_fg, render_action_button,
@@ -44,11 +45,13 @@ pub(super) fn render_rename_overlay(app: &AppState, frame: &mut Frame, area: Rec
     super::dim_background(frame, area);
 
     let title = match app.mode {
-        Mode::RenameWorkspace if app.pending_workspace_create_cwd.is_some() => "new workspace",
-        Mode::RenameWorkspace => "rename workspace",
-        Mode::RenameTab if app.creating_new_tab => "new tab",
-        Mode::RenameTab => "rename tab",
-        Mode::RenamePane => "rename pane",
+        Mode::RenameWorkspace if app.pending_workspace_create_cwd.is_some() => {
+            tr(app.ui_language, "new workspace")
+        }
+        Mode::RenameWorkspace => tr(app.ui_language, "rename workspace"),
+        Mode::RenameTab if app.creating_new_tab => tr(app.ui_language, "new tab"),
+        Mode::RenameTab => tr(app.ui_language, "rename tab"),
+        Mode::RenamePane => tr(app.ui_language, "rename pane"),
         _ => return,
     };
 
@@ -87,7 +90,7 @@ pub(super) fn render_rename_overlay(app: &AppState, frame: &mut Frame, area: Rec
         frame,
         save_rect,
         Some("↵"),
-        "save",
+        tr(app.ui_language, "save"),
         Style::default()
             .fg(panel_contrast_fg(&app.palette))
             .bg(app.palette.accent)
@@ -97,7 +100,7 @@ pub(super) fn render_rename_overlay(app: &AppState, frame: &mut Frame, area: Rec
         frame,
         clear_rect,
         Some("^c"),
-        "clear",
+        tr(app.ui_language, "clear"),
         Style::default()
             .fg(app.palette.text)
             .bg(app.palette.surface0)
@@ -107,7 +110,7 @@ pub(super) fn render_rename_overlay(app: &AppState, frame: &mut Frame, area: Rec
         frame,
         cancel_rect,
         Some("esc"),
-        "cancel",
+        tr(app.ui_language, "cancel"),
         Style::default()
             .fg(app.palette.text)
             .bg(app.palette.surface0)
@@ -260,10 +263,16 @@ pub(super) fn render_new_linked_worktree_overlay(app: &AppState, frame: &mut Fra
     ])
     .areas::<8>(inner);
 
-    render_modal_header(frame, rows[0], "new worktree", &app.palette);
+    render_modal_header(
+        frame,
+        rows[0],
+        tr(app.ui_language, "new worktree"),
+        &app.palette,
+    );
 
     frame.render_widget(
-        Paragraph::new(" branch").style(Style::default().fg(app.palette.overlay0)),
+        Paragraph::new(format!(" {}", tr(app.ui_language, "branch")))
+            .style(Style::default().fg(app.palette.overlay0)),
         rows[1],
     );
     let input_rect = Rect::new(rows[2].x, rows[2].y, rows[2].width, 1);
@@ -279,7 +288,8 @@ pub(super) fn render_new_linked_worktree_overlay(app: &AppState, frame: &mut Fra
 
     let checkout = create.checkout_path.display().to_string();
     frame.render_widget(
-        Paragraph::new(" checkout").style(Style::default().fg(app.palette.overlay0)),
+        Paragraph::new(format!(" {}", tr(app.ui_language, "checkout")))
+            .style(Style::default().fg(app.palette.overlay0)),
         rows[3],
     );
     frame.render_widget(
@@ -289,7 +299,8 @@ pub(super) fn render_new_linked_worktree_overlay(app: &AppState, frame: &mut Fra
 
     if create.creating {
         frame.render_widget(
-            Paragraph::new(" creating…").style(Style::default().fg(app.palette.overlay0)),
+            Paragraph::new(format!(" {}", tr(app.ui_language, "creating…")))
+                .style(Style::default().fg(app.palette.overlay0)),
             rows[5],
         );
     } else if let Some(error) = &create.error {
@@ -306,7 +317,7 @@ pub(super) fn render_new_linked_worktree_overlay(app: &AppState, frame: &mut Fra
         frame,
         create_rect,
         Some("↵"),
-        "create and open",
+        tr(app.ui_language, "create and open"),
         Style::default()
             .fg(panel_contrast_fg(&app.palette))
             .bg(app.palette.accent)
@@ -316,7 +327,7 @@ pub(super) fn render_new_linked_worktree_overlay(app: &AppState, frame: &mut Fra
         frame,
         cancel_rect,
         Some("esc"),
-        "cancel",
+        tr(app.ui_language, "cancel"),
         Style::default()
             .fg(app.palette.text)
             .bg(app.palette.surface0)
@@ -352,7 +363,7 @@ pub(super) fn render_remove_worktree_overlay(app: &AppState, frame: &mut Frame, 
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![Span::styled(
-            " delete worktree checkout?",
+            format!(" {}", tr(app.ui_language, "delete worktree checkout?")),
             Style::default()
                 .fg(app.palette.red)
                 .add_modifier(Modifier::BOLD),
@@ -360,8 +371,11 @@ pub(super) fn render_remove_worktree_overlay(app: &AppState, frame: &mut Frame, 
         rows[0],
     );
     frame.render_widget(
-        Paragraph::new(" This removes the checkout folder:")
-            .style(Style::default().fg(app.palette.overlay0)),
+        Paragraph::new(format!(
+            " {}",
+            tr(app.ui_language, "This removes the checkout folder:")
+        ))
+        .style(Style::default().fg(app.palette.overlay0)),
         rows[1],
     );
     frame.render_widget(
@@ -370,20 +384,33 @@ pub(super) fn render_remove_worktree_overlay(app: &AppState, frame: &mut Frame, 
         rows[2],
     );
     frame.render_widget(
-        Paragraph::new(" The branch is not deleted. The Herdr workspace will close.")
-            .style(Style::default().fg(app.palette.overlay0)),
+        Paragraph::new(format!(
+            " {}",
+            tr(
+                app.ui_language,
+                "The branch is not deleted. The Herdr workspace will close."
+            )
+        ))
+        .style(Style::default().fg(app.palette.overlay0)),
         rows[3],
     );
     if remove.force_confirmation {
         frame.render_widget(
-            Paragraph::new(" Dirty or untracked files will be permanently deleted.")
-                .style(Style::default().fg(app.palette.red)),
+            Paragraph::new(format!(
+                " {}",
+                tr(
+                    app.ui_language,
+                    "Dirty or untracked files will be permanently deleted."
+                )
+            ))
+            .style(Style::default().fg(app.palette.red)),
             rows[4],
         );
     }
     if remove.removing {
         frame.render_widget(
-            Paragraph::new(" removing…").style(Style::default().fg(app.palette.overlay0)),
+            Paragraph::new(format!(" {}", tr(app.ui_language, "removing…")))
+                .style(Style::default().fg(app.palette.overlay0)),
             rows[5],
         );
     } else if let Some(error) = &remove.error {
@@ -403,7 +430,7 @@ pub(super) fn render_remove_worktree_overlay(app: &AppState, frame: &mut Frame, 
         frame,
         remove_rect,
         Some("↵"),
-        remove_label,
+        tr(app.ui_language, remove_label),
         Style::default()
             .fg(panel_contrast_fg(&app.palette))
             .bg(app.palette.red)
@@ -413,7 +440,7 @@ pub(super) fn render_remove_worktree_overlay(app: &AppState, frame: &mut Frame, 
         frame,
         cancel_rect,
         Some("esc"),
-        "cancel",
+        tr(app.ui_language, "cancel"),
         Style::default()
             .fg(app.palette.text)
             .bg(app.palette.surface0)
@@ -441,7 +468,7 @@ pub(super) fn render_open_existing_worktree_overlay(app: &AppState, frame: &mut 
     render_modal_header(
         frame,
         Rect::new(inner.x, inner.y, inner.width, 1),
-        "open worktree",
+        tr(app.ui_language, "open worktree"),
         &app.palette,
     );
     render_open_worktree_search(
@@ -515,7 +542,7 @@ pub(super) fn render_open_existing_worktree_overlay(app: &AppState, frame: &mut 
 
     if filtered.is_empty() {
         frame.render_widget(
-            Paragraph::new(" no matching worktrees")
+            Paragraph::new(format!(" {}", tr(app.ui_language, "no matching worktrees")))
                 .style(Style::default().fg(app.palette.overlay0)),
             Rect::new(inner.x, inner.y.saturating_add(3), inner.width, 1),
         );
@@ -538,7 +565,7 @@ pub(super) fn render_open_existing_worktree_overlay(app: &AppState, frame: &mut 
         frame,
         open_rect,
         Some("↵"),
-        "open",
+        tr(app.ui_language, "open"),
         Style::default()
             .fg(panel_contrast_fg(&app.palette))
             .bg(app.palette.accent)
@@ -548,7 +575,7 @@ pub(super) fn render_open_existing_worktree_overlay(app: &AppState, frame: &mut 
         frame,
         cancel_rect,
         Some("esc"),
-        "cancel",
+        tr(app.ui_language, "cancel"),
         Style::default()
             .fg(app.palette.text)
             .bg(app.palette.surface0)
@@ -578,7 +605,7 @@ fn render_open_worktree_search(
     let mut spans = vec![Span::styled(" / ", focus_style)];
     if open.query.trim().is_empty() {
         spans.push(Span::styled(
-            "filter worktrees",
+            tr(app.ui_language, "filter worktrees"),
             Style::default().fg(app.palette.overlay0),
         ));
     } else {
@@ -638,26 +665,31 @@ fn confirm_close_overlay_text(
             .unwrap_or(0)
     };
 
-    let pane_text = if pane_count == 1 {
+    let pane_text = if app.ui_language == crate::config::UiLanguageConfig::TraditionalChinese {
+        format!("{pane_count} 個窗格")
+    } else if pane_count == 1 {
         "1 pane".to_string()
     } else {
         format!("{pane_count} panes")
     };
-    let workspace_text = if closes_group {
-        let count = group_member_indices.len();
-        if count == 1 {
-            "1 workspace, ".to_string()
+    let workspace_text =
+        if closes_group && app.ui_language == crate::config::UiLanguageConfig::TraditionalChinese {
+            format!("{} 個工作空間，", group_member_indices.len())
+        } else if closes_group {
+            let count = group_member_indices.len();
+            if count == 1 {
+                "1 workspace, ".to_string()
+            } else {
+                format!("{count} workspaces, ")
+            }
         } else {
-            format!("{count} workspaces, ")
-        }
-    } else {
-        String::new()
-    };
+            String::new()
+        };
 
     let title = if closes_group {
-        "Close worktree group?"
+        tr(app.ui_language, "Close worktree group?")
     } else {
-        "Close workspace?"
+        tr(app.ui_language, "Close workspace?")
     };
     let detail = format!("{ws_name} — {workspace_text}{pane_text}");
     (title.to_string(), detail)
@@ -722,7 +754,7 @@ pub(super) fn render_confirm_close_overlay(
             frame,
             confirm_rect,
             Some("↵"),
-            "confirm",
+            tr(app.ui_language, "confirm"),
             Style::default()
                 .fg(panel_contrast_fg(&app.palette))
                 .bg(app.palette.red)
@@ -732,7 +764,7 @@ pub(super) fn render_confirm_close_overlay(
             frame,
             cancel_rect,
             Some("esc"),
-            "cancel",
+            tr(app.ui_language, "cancel"),
             Style::default()
                 .fg(app.palette.text)
                 .bg(app.palette.surface0)

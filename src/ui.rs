@@ -6,6 +6,7 @@ use ratatui::{
 };
 
 mod dialogs;
+pub(crate) mod i18n;
 mod keybind_help;
 mod menus;
 mod mobile;
@@ -19,7 +20,7 @@ mod sidebar;
 mod status;
 mod tab_surface;
 mod tabs;
-mod text;
+pub(crate) mod text;
 mod widgets;
 
 use self::dialogs::{
@@ -88,6 +89,7 @@ pub(crate) use self::{
     },
 };
 
+pub(crate) use self::text::display_width_u16;
 pub(crate) use self::{
     keybind_help::keybind_help_lines,
     mobile::{

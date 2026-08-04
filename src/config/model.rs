@@ -114,6 +114,20 @@ pub enum StatusIndicatorStyle {
     Symbols,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub enum UiLanguageConfig {
+    #[default]
+    #[serde(rename = "en", alias = "en-US", alias = "en_US")]
+    English,
+    #[serde(
+        rename = "zh-TW",
+        alias = "zh_tw",
+        alias = "zh-tw",
+        alias = "traditional-chinese"
+    )]
+    TraditionalChinese,
+}
+
 impl StatusIndicatorStyle {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -800,6 +814,11 @@ pub enum TabBarPositionConfig {
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct UiConfig {
+    /// User-interface language. Supported values: "en" and "zh-TW".
+    pub language: UiLanguageConfig,
+    /// Use safe automatic permissions for Herdr-managed Codex and Claude launches/resumes.
+    /// Agents started manually inside a pane are unaffected.
+    pub auto_mode: bool,
     pub sidebar_width: u16,
     /// Minimum sidebar width (columns) when expanded. Default: 18.
     pub sidebar_min_width: u16,
@@ -1026,6 +1045,8 @@ impl Default for WorktreesConfig {
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
+            language: UiLanguageConfig::English,
+            auto_mode: false,
             sidebar_width: 26,
             sidebar_min_width: 18,
             sidebar_max_width: 36,
@@ -1287,6 +1308,24 @@ status_indicators = "symbols"
         )
         .unwrap();
         assert_eq!(config.ui.status_indicators, StatusIndicatorStyle::Symbols);
+    }
+
+    #[test]
+    fn ui_language_and_auto_mode_default_and_parse() {
+        let defaults = Config::default();
+        assert_eq!(defaults.ui.language, UiLanguageConfig::English);
+        assert!(!defaults.ui.auto_mode);
+
+        let config: Config = toml::from_str(
+            r#"
+[ui]
+language = "zh-TW"
+auto_mode = true
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.ui.language, UiLanguageConfig::TraditionalChinese);
+        assert!(config.ui.auto_mode);
     }
 
     #[test]
