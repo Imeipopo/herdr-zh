@@ -521,6 +521,17 @@ pub fn open_url(url: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+pub fn preview_path(path: &std::path::Path) -> std::io::Result<()> {
+    Command::new("qlmanage")
+        .arg("-p")
+        .arg(path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+    Ok(())
+}
+
 pub fn read_clipboard_image() -> Option<ClipboardImage> {
     let path = std::env::temp_dir().join(format!(
         "herdr-clipboard-image-{}-{}.png",

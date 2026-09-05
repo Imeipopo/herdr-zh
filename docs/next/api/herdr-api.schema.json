@@ -3586,6 +3586,26 @@
             }
           ]
         },
+        "ProjectCreateParams": {
+          "properties": {
+            "label": {
+              "type": "string"
+            },
+            "open_existing": {
+              "default": false,
+              "type": "boolean"
+            },
+            "path": {
+              "description": "Full project directory. Must not exist unless open_existing is true.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "label"
+          ],
+          "type": "object"
+        },
         "ReadFormat": {
           "enum": [
             "text",
@@ -4127,6 +4147,29 @@
           },
           "type": "object"
         },
+        "WorkspaceMediaSetParams": {
+          "properties": {
+            "collect_outputs": {
+              "default": false,
+              "type": "boolean"
+            },
+            "copy_existing": {
+              "default": false,
+              "type": "boolean"
+            },
+            "directory": {
+              "type": "string"
+            },
+            "workspace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workspace_id",
+            "directory"
+          ],
+          "type": "object"
+        },
         "WorkspaceMoveBlockParams": {
           "properties": {
             "before_workspace_id": {
@@ -4582,6 +4625,54 @@
             },
             "params": {
               "$ref": "#/schemas/request/$defs/WorkspaceTarget"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "project.create",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/ProjectCreateParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "workspace.media.get",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/WorkspaceTarget"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "workspace.media.set",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/WorkspaceMediaSetParams"
             }
           },
           "required": [
@@ -7238,6 +7329,27 @@
             }
           ]
         },
+        "MediaFileInfo": {
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "modified_unix_seconds": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "kind",
+            "modified_unix_seconds"
+          ],
+          "type": "object"
+        },
         "NotificationShowReason": {
           "enum": [
             "shown",
@@ -8607,6 +8719,33 @@
               "required": [
                 "type",
                 "snapshot"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "collect_outputs": {
+                  "type": "boolean"
+                },
+                "directory": {
+                  "type": "string"
+                },
+                "files": {
+                  "items": {
+                    "$ref": "#/schemas/success_response/$defs/MediaFileInfo"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "const": "workspace_media",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "directory",
+                "collect_outputs",
+                "files"
               ],
               "type": "object"
             },

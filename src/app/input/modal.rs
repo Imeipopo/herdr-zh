@@ -385,6 +385,7 @@ pub(crate) fn open_new_workspace_dialog(state: &mut AppState, cwd: std::path::Pa
     let suggested_name = crate::workspace::derive_label_from_cwd(&cwd);
     state.creating_new_tab = false;
     state.requested_new_tab_name = None;
+    state.media_ui.dialog = Some(crate::app::media::MediaDialog::new_project(cwd.clone()));
     state.pending_workspace_create_cwd = Some(cwd);
     state.rename_pane_target = None;
     state.name_input = suggested_name;
@@ -996,6 +997,10 @@ pub(crate) fn handle_context_menu_key(
 
 impl App {
     pub(crate) fn handle_rename_key_via_api(&mut self, key: KeyEvent) {
+        if self.state.media_ui.dialog.is_some() {
+            self.handle_media_key(key);
+            return;
+        }
         if let Some(action) = modal_action_from_key(&key, RENAME_ACTIONS) {
             self.apply_rename_mouse_action_via_api(action);
             return;
@@ -1016,6 +1021,15 @@ impl App {
                 if let Some(cwd) = self.state.pending_workspace_create_cwd.take() {
                     let suggested_name = crate::workspace::derive_label_from_cwd(&cwd);
                     let label = workspace_create_label(&new_name, &suggested_name);
+                    let cwd = if cwd.starts_with(crate::media::projects_root()) {
+                        crate::media::project_dir_for_name(&new_name)
+                    } else {
+                        cwd
+                    };
+                    if let Err(err) = crate::media::initialize_project(&cwd) {
+                        tracing::warn!(?err, ?cwd, "failed to create project directory");
+                        return;
+                    }
                     self.runtime_workspace_create(
                         "tui.workspace.create_named",
                         crate::api::schema::WorkspaceCreateParams {

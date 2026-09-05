@@ -1477,7 +1477,7 @@ async fn run_client_loop(
                         info!(
                             bytes = image.bytes.len(),
                             extension = image.extension,
-                            "bridging local clipboard image paste to remote server"
+                            "sending clipboard image to workspace server"
                         );
                         let msg = ClientMessage::ClipboardImage {
                             extension: image.extension.to_owned(),
@@ -1741,10 +1741,8 @@ fn write_to_server(stream: &mut LocalStream, msg: &ClientMessage) -> io::Result<
 fn client_remote_image_paste_key(
     config: &crate::config::Config,
 ) -> Option<(crossterm::event::KeyCode, crossterm::event::KeyModifiers)> {
-    if !is_remote_client_process() {
-        return None;
-    }
-
+    // Local media import uses the same configurable clipboard shortcut as
+    // remote sessions, keeping a single image transfer path.
     match config.remote_image_paste_key() {
         Ok(key) => key,
         Err(diagnostic) => {
@@ -1854,11 +1852,11 @@ fn sound_from_notify_message(message: &str) -> Option<crate::sound::Sound> {
 #[cfg(unix)]
 fn should_bridge_clipboard_image_paste(
     data: &[u8],
-    is_remote_client: bool,
+    _is_remote_client: bool,
     remote_image_paste_key: Option<(crossterm::event::KeyCode, crossterm::event::KeyModifiers)>,
 ) -> bool {
     if data == b"\x1b[200~\x1b[201~" {
-        return is_remote_client;
+        return true;
     }
 
     let Some(remote_image_paste_key) = remote_image_paste_key else {
@@ -2403,7 +2401,7 @@ mod tests {
             true,
             None
         ));
-        assert!(!should_bridge_clipboard_image_paste(
+        assert!(should_bridge_clipboard_image_paste(
             b"\x1b[200~\x1b[201~",
             false,
             Some(ctrl_v)

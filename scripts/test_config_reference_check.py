@@ -243,3 +243,22 @@ class RealModelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EnumRenameTests(unittest.TestCase):
+    def test_variant_renames_override_lowercase_and_ignore_aliases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model.rs"
+            path.write_text('''pub enum Language {
+    #[serde(rename = "en", alias = "en-US")]
+    English,
+    #[serde(
+        rename = "zh-TW",
+        alias = "zh_tw"
+    )]
+    TraditionalChinese,
+}
+''')
+            model = Model()
+            parse_file(path.read_text(), model)
+            self.assertEqual(model.enums["Language"], ["en", "zh-TW"])

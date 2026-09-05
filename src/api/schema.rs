@@ -4,6 +4,7 @@ pub mod agents;
 pub mod common;
 pub mod events;
 pub mod integrations;
+pub mod media;
 pub mod panes;
 pub mod plugins;
 pub mod response;
@@ -17,6 +18,7 @@ pub use agents::*;
 pub use common::*;
 pub use events::*;
 pub use integrations::*;
+pub use media::*;
 pub use panes::*;
 pub use plugins::*;
 pub use response::*;
@@ -69,6 +71,12 @@ pub enum Method {
     WorkspaceList(EmptyParams),
     #[serde(rename = "workspace.get")]
     WorkspaceGet(WorkspaceTarget),
+    #[serde(rename = "project.create")]
+    ProjectCreate(ProjectCreateParams),
+    #[serde(rename = "workspace.media.get")]
+    WorkspaceMediaGet(WorkspaceTarget),
+    #[serde(rename = "workspace.media.set")]
+    WorkspaceMediaSet(WorkspaceMediaSetParams),
     #[serde(rename = "workspace.focus")]
     WorkspaceFocus(WorkspaceTarget),
     #[serde(rename = "workspace.rename")]

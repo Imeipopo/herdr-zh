@@ -548,6 +548,28 @@
       "title": "UI and sidebar",
       "keys": [
         {
+          "key": "ui.language",
+          "type": "enum",
+          "default": "\"en\"",
+          "values": [
+            "en",
+            "zh-TW"
+          ],
+          "description": "herdr-zh interface language: English or Traditional Chinese."
+        },
+        {
+          "key": "ui.auto_mode",
+          "type": "boolean",
+          "default": "false",
+          "description": "Use the fork safe auto mode when launching or resuming Codex and Claude. Does not change running agents."
+        },
+        {
+          "key": "ui.media_panel_start_collapsed",
+          "type": "boolean",
+          "default": "false",
+          "description": "Start with the project image/document panel collapsed. The panel also hides automatically when the terminal would have fewer than 48 columns."
+        },
+        {
           "key": "ui.sidebar_width",
           "type": "integer",
           "default": "26",

@@ -1242,6 +1242,30 @@ pub fn open_url(url: &str) -> std::io::Result<()> {
     }
 }
 
+pub fn preview_path(path: &std::path::Path) -> std::io::Result<()> {
+    let operation = wide_null("open");
+    let path_string = path.to_string_lossy();
+    let path = wide_null(path_string.as_ref());
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            operation.as_ptr(),
+            path.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            1,
+        )
+    };
+    if result as isize > 32 {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
+            "failed to preview path with ShellExecuteW: code {}",
+            result as isize
+        )))
+    }
+}
+
 // Windows does not wire clipboard-image bridging into semantic input yet.
 #[cfg_attr(windows, allow(dead_code))]
 pub fn read_clipboard_image() -> Option<ClipboardImage> {

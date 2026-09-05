@@ -16,6 +16,7 @@ mod creation;
 mod git_refresh;
 mod ids;
 mod input;
+pub(crate) mod media;
 mod popup;
 mod runtime;
 mod runtime_mutations;
@@ -96,6 +97,10 @@ impl PaneClickState {
 pub struct App {
     pub state: AppState,
     pub(crate) terminal_runtimes: crate::terminal::TerminalRuntimeRegistry,
+    /// Live directory watchers for the media timeline feature, keyed by
+    /// `Workspace.id`. Runtime resource (owns a background thread per
+    /// entry), intentionally kept off `AppState`.
+    pub(crate) media_watchers: HashMap<String, crate::media::watcher::MediaWatcher>,
     pub event_tx: mpsc::Sender<AppEvent>,
     pub(crate) event_rx: mpsc::Receiver<AppEvent>,
     pub(crate) api_rx: tokio::sync::mpsc::UnboundedReceiver<crate::api::ApiRequestMessage>,
@@ -545,6 +550,7 @@ impl App {
             requested_new_tab_name: None,
             pending_workspace_create_cwd: None,
             rename_pane_target: None,
+            media_ui: Default::default(),
             worktree_create: None,
             worktree_open: None,
             worktree_remove: None,
@@ -575,6 +581,8 @@ impl App {
             view: state::ViewState {
                 layout: state::ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
+                media_panel_rect: Rect::default(),
+                media_entry_hit_areas: Vec::new(),
                 workspace_card_areas: Vec::new(),
                 tab_bar_rect: Rect::default(),
                 tab_hit_areas: Vec::new(),
@@ -615,6 +623,11 @@ impl App {
             sidebar_collapsed: config.ui.sidebar_start_collapsed,
             sidebar_collapsed_mode: config.ui.sidebar_collapsed_mode,
             sidebar_section_split,
+            media_panel_width: 28,
+            media_panel_min_width: 20,
+            media_panel_max_width: 44,
+            media_panel_collapsed: config.ui.media_panel_start_collapsed,
+            media_index: crate::media::MediaIndex::new(),
             agent_panel_sort,
             status_indicators: config.ui.status_indicators,
             ui_language: config.ui.language,
@@ -728,6 +741,7 @@ impl App {
             last_api_notification_at: None,
             state,
             terminal_runtimes: restored_terminal_runtimes,
+            media_watchers: HashMap::new(),
             event_tx,
             event_rx,
             last_git_remote_status_refresh: Instant::now() - GIT_REMOTE_STATUS_REFRESH_INTERVAL,
@@ -1585,6 +1599,42 @@ impl App {
 // ---------------------------------------------------------------------------
 
 impl App {
+    /// Start a directory watcher for every workspace that doesn't already
+    /// have one. Idempotent and cheap to call every tick — most calls are a
+    /// no-op HashMap lookup per workspace.
+    pub(crate) fn ensure_media_watchers(&mut self) {
+        self.media_watchers
+            .retain(|id, _| self.state.workspaces.iter().any(|ws| &ws.id == id));
+
+        for ws in &self.state.workspaces {
+            if self.media_watchers.contains_key(&ws.id) {
+                continue;
+            }
+            self.state.media_index.load(&ws.id, &ws.identity_cwd);
+            self.state.media_index.reconcile(
+                &ws.id,
+                crate::media::files::scan(&crate::media::directory(&ws.identity_cwd)),
+            );
+            match crate::media::watcher::start(
+                &ws.identity_cwd,
+                ws.id.clone(),
+                self.event_tx.clone(),
+            ) {
+                Ok(watcher) => {
+                    self.media_watchers.insert(ws.id.clone(), watcher);
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        ?err,
+                        workspace_id = %ws.id,
+                        path = %ws.identity_cwd.display(),
+                        "failed to start media watcher"
+                    );
+                }
+            }
+        }
+    }
+
     pub(crate) fn terminal_input_context(&self) -> Option<TerminalInputContext> {
         if let Some(popup) = &self.state.popup_pane {
             Some(TerminalInputContext::Popup(popup.terminal_id.clone()))
@@ -1739,6 +1789,18 @@ impl App {
                     } else {
                         if let Some(ws_idx) = self.state.active {
                             if let Some(ws) = self.state.workspaces.get(ws_idx) {
+                                let text = match crate::media::capture_paths(
+                                    &text,
+                                    &ws.identity_cwd,
+                                    &ws.id,
+                                    &mut self.state.media_index,
+                                ) {
+                                    Ok(text) => text,
+                                    Err(err) => {
+                                        self.media_error(err.to_string());
+                                        continue;
+                                    }
+                                };
                                 if let Some(focused) = ws.focused_pane_id() {
                                     if let Some(runtime) = self.state.runtime_for_pane_in_workspace(
                                         &self.terminal_runtimes,

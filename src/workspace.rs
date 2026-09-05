@@ -1092,8 +1092,14 @@ impl Workspace {
         &self,
         tab_number: usize,
         pane_number: usize,
-        extra_env: Vec<(String, String)>,
+        mut extra_env: Vec<(String, String)>,
     ) -> PaneLaunchEnv {
+        extra_env.push((
+            "HERDR_MEDIA_DIR".to_string(),
+            crate::media::directory(&self.identity_cwd)
+                .to_string_lossy()
+                .into_owned(),
+        ));
         PaneLaunchEnv::from_extra(extra_env).with_identity(
             self.id.clone(),
             public_tab_id_for_number(&self.id, tab_number),

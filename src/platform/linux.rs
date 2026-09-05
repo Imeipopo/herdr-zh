@@ -465,6 +465,16 @@ pub fn open_url(url: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+pub fn preview_path(path: &std::path::Path) -> std::io::Result<()> {
+    Command::new("xdg-open")
+        .arg(path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+    Ok(())
+}
+
 pub fn read_clipboard_image() -> Option<ClipboardImage> {
     for (mime, extension) in [
         ("image/png", "png"),

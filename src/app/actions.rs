@@ -2932,6 +2932,20 @@ impl AppState {
             AppEvent::WorktreeAddFinished(_) => Vec::new(),
             AppEvent::WorktreeRemoveFinished(_) => Vec::new(),
             AppEvent::PluginCommandFinished { .. } => Vec::new(),
+            AppEvent::MediaFilesObserved {
+                workspace_id,
+                directory,
+                paths,
+            } => {
+                if self.media_index.directory_for(&workspace_id) != Some(directory.as_path()) {
+                    return Vec::new(); // Discard a stopped worker's queued inventory after reconfiguration.
+                }
+                self.media_index.reconcile(&workspace_id, paths);
+                if let Some(ws) = self.workspaces.iter().find(|ws| ws.id == workspace_id) {
+                    self.media_index.save(&workspace_id, &ws.identity_cwd);
+                }
+                Vec::new()
+            }
         }
     }
 

@@ -777,6 +777,8 @@ pub enum ViewLayout {
 pub struct ViewState {
     pub layout: ViewLayout,
     pub sidebar_rect: Rect,
+    pub media_panel_rect: Rect,
+    pub media_entry_hit_areas: Vec<MediaEntryHitArea>,
     pub workspace_card_areas: Vec<WorkspaceCardArea>,
     pub tab_bar_rect: Rect,
     pub tab_hit_areas: Vec<Rect>,
@@ -789,6 +791,12 @@ pub struct ViewState {
     pub toast_hit_area: Rect,
     pub pane_infos: Vec<PaneInfo>,
     pub split_borders: Vec<SplitBorder>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MediaEntryHitArea {
+    pub rect: Rect,
+    pub path: std::path::PathBuf,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1433,6 +1441,7 @@ pub struct AppState {
     pub requested_new_tab_name: Option<String>,
     pub pending_workspace_create_cwd: Option<std::path::PathBuf>,
     pub rename_pane_target: Option<PaneId>,
+    pub media_ui: super::media::MediaUi,
     pub worktree_create: Option<WorktreeCreateState>,
     pub worktree_open: Option<WorktreeOpenState>,
     pub worktree_remove: Option<WorktreeRemoveState>,
@@ -1485,6 +1494,13 @@ pub struct AppState {
     pub sidebar_collapsed_mode: crate::config::SidebarCollapsedModeConfig,
     /// Ratio of sidebar height allocated to the workspaces section.
     pub sidebar_section_split: f32,
+    pub media_panel_width: u16,
+    pub media_panel_min_width: u16,
+    pub media_panel_max_width: u16,
+    pub media_panel_collapsed: bool,
+    /// Per-workspace media timeline (dropped/watched files). TUI/client-only
+    /// state, not part of the persisted session snapshot.
+    pub media_index: crate::media::MediaIndex,
     pub agent_panel_sort: AgentPanelSort,
     pub status_indicators: crate::config::StatusIndicatorStyle,
     pub ui_language: crate::config::UiLanguageConfig,
@@ -1799,6 +1815,7 @@ impl AppState {
             requested_new_tab_name: None,
             pending_workspace_create_cwd: None,
             rename_pane_target: None,
+            media_ui: Default::default(),
             worktree_create: None,
             worktree_open: None,
             worktree_remove: None,
@@ -1820,6 +1837,8 @@ impl AppState {
             view: ViewState {
                 layout: ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
+                media_panel_rect: Rect::default(),
+                media_entry_hit_areas: Vec::new(),
                 workspace_card_areas: Vec::new(),
                 tab_bar_rect: Rect::default(),
                 tab_hit_areas: Vec::new(),
@@ -1860,6 +1879,14 @@ impl AppState {
             sidebar_collapsed: false,
             sidebar_collapsed_mode: crate::config::SidebarCollapsedModeConfig::Compact,
             sidebar_section_split: 0.5,
+            media_panel_width: 28,
+            media_panel_min_width: 20,
+            media_panel_max_width: 44,
+            // Off by default: no dedicated toggle keybinding exists yet
+            // (follow-up), and defaulting to visible shrank the terminal
+            // area enough to break existing layout-size assumptions.
+            media_panel_collapsed: true,
+            media_index: crate::media::MediaIndex::new(),
             agent_panel_sort: AgentPanelSort::Spaces,
             status_indicators: crate::config::StatusIndicatorStyle::Dots,
             ui_language: crate::config::UiLanguageConfig::English,

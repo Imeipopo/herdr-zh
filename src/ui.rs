@@ -8,6 +8,7 @@ use ratatui::{
 mod dialogs;
 pub(crate) mod i18n;
 mod keybind_help;
+mod media_panel;
 mod menus;
 mod mobile;
 mod navigator;
@@ -221,6 +222,7 @@ fn compute_view_internal(
     resize_panes: bool,
     cell_size: crate::kitty_graphics::HostCellSize,
 ) {
+    app.media_ui.area = area;
     if is_mobile_width(area, app.mobile_width_threshold) {
         compute_mobile_view(app, terminal_runtimes, area, resize_panes, cell_size);
         return;
@@ -236,8 +238,28 @@ fn compute_view_internal(
             .clamp(app.sidebar_min_width, app.sidebar_max_width)
     };
 
-    let [sidebar_area, main_area] =
-        Layout::horizontal([Constraint::Length(sidebar_w), Constraint::Min(1)]).areas(area);
+    let requested_media_width = app
+        .media_panel_width
+        .clamp(app.media_panel_min_width, app.media_panel_max_width);
+    // Keep enough terminal columns for agent prompts on smaller windows.
+    let media_panel_w = if app.media_panel_collapsed
+        || area
+            .width
+            .saturating_sub(sidebar_w.saturating_add(requested_media_width))
+            < 48
+    {
+        0
+    } else {
+        app.media_panel_width
+            .clamp(app.media_panel_min_width, app.media_panel_max_width)
+    };
+
+    let [sidebar_area, main_area, media_panel_area] = Layout::horizontal([
+        Constraint::Length(sidebar_w),
+        Constraint::Min(1),
+        Constraint::Length(media_panel_w),
+    ])
+    .areas(area);
 
     let (tab_bar_rect, terminal_area) = app
         .active
@@ -306,9 +328,42 @@ fn compute_view_internal(
         })
         .unwrap_or_default();
 
+    let workspace = app
+        .active
+        .and_then(|i| app.workspaces.get(i))
+        .map(|ws| ws.id.clone());
+    if app.media_ui.workspace != workspace {
+        app.media_ui.workspace = workspace;
+        app.media_ui.scroll = 0;
+        app.media_ui.selected = None;
+    }
+    let count = media_panel::filtered_entries(app).len();
+    let visible = media_panel_area.height.saturating_sub(6) as usize;
+    app.media_ui.scroll = app
+        .media_ui
+        .scroll
+        .min(count.saturating_sub(visible.max(1)));
+    let media_entry_hit_areas = media_panel::filtered_entries(app)
+        .into_iter()
+        .skip(app.media_ui.scroll)
+        .take(visible)
+        .enumerate()
+        .map(|(index, entry)| crate::app::state::MediaEntryHitArea {
+            rect: Rect::new(
+                media_panel_area.x.saturating_add(1),
+                media_panel_area.y.saturating_add(5 + index as u16),
+                media_panel_area.width.saturating_sub(1),
+                1,
+            ),
+            path: entry.path.clone(),
+        })
+        .collect();
+
     app.view = crate::app::ViewState {
         layout: ViewLayout::Desktop,
         sidebar_rect: sidebar_area,
+        media_panel_rect: media_panel_area,
+        media_entry_hit_areas,
         workspace_card_areas,
         tab_bar_rect,
         tab_hit_areas: tab_bar_view.tab_hit_areas,
@@ -372,6 +427,8 @@ fn compute_mobile_view(
     app.view = crate::app::ViewState {
         layout: ViewLayout::Mobile,
         sidebar_rect: Rect::default(),
+        media_panel_rect: Rect::default(),
+        media_entry_hit_areas: Vec::new(),
         workspace_card_areas: Vec::new(),
         tab_bar_rect: Rect::default(),
         tab_hit_areas: Vec::new(),
@@ -476,6 +533,10 @@ fn render_navigation_chrome(
         } else {
             render_sidebar(app, terminal_runtimes, frame, app.view.sidebar_rect);
         }
+    }
+
+    if app.view.layout != ViewLayout::Mobile && app.view.media_panel_rect.width > 0 {
+        media_panel::render_media_panel(app, frame, app.view.media_panel_rect);
     }
 }
 

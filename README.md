@@ -50,6 +50,7 @@ cargo build --release
 [ui]
 language = "zh-TW"
 auto_mode = true
+media_panel_start_collapsed = false
 ```
 
 也可以在繁中介面的「設定 → 自動模式」隨時切換，變更會保存到設定檔。

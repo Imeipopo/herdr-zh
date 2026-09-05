@@ -1679,6 +1679,46 @@ impl HeadlessServer {
         extension: &str,
         data: &[u8],
     ) -> std::io::Result<String> {
+        let workspace = match self.clients.get(&client_id).map(|client| &client.mode) {
+            Some(ClientConnectionMode::TerminalAttach { terminal_id }) => {
+                self.app.state.workspaces.iter().find(|ws| {
+                    ws.tabs.iter().any(|tab| {
+                        tab.layout.pane_ids().iter().any(|pane_id| {
+                            ws.pane_state(*pane_id).is_some_and(|pane| {
+                                pane.attached_terminal_id.to_string() == *terminal_id
+                            })
+                        })
+                    })
+                })
+            }
+            _ => self
+                .app
+                .state
+                .active
+                .and_then(|index| self.app.state.workspaces.get(index)),
+        };
+        if let Some((workspace_id, project_dir)) =
+            workspace.map(|ws| (ws.id.clone(), ws.identity_cwd.clone()))
+        {
+            let path = crate::server::clipboard_image::store_in_project_media(
+                &project_dir,
+                extension,
+                data,
+            )?;
+            self.app.state.media_index.record(
+                &workspace_id,
+                crate::media::MediaEntry {
+                    kind: crate::media::MediaKind::Image,
+                    path: path.clone(),
+                    added_at: std::time::SystemTime::now(),
+                    source: crate::media::MediaSource::Dropped,
+                },
+            );
+            self.app.state.media_index.save(&workspace_id, &project_dir);
+            info!(client_id, bytes = data.len(), path = %path.display(), "stored client clipboard image in project media");
+            return Ok(crate::media::quote_path(&path));
+        }
+
         let staged = crate::server::clipboard_image::stage(client_id, extension, data)?;
         if let Some(client) = self.clients.get_mut(&client_id) {
             client.staged_clipboard_files.push(staged.path);
@@ -2954,6 +2994,7 @@ impl HeadlessServer {
                     Ok(path) => self.paste_client_clipboard_image_path(client_id, path),
                     Err(err) => {
                         warn!(client_id, err = %err, "failed to stage client clipboard image");
+                        self.app.media_error(err.to_string());
                         true
                     }
                 }
@@ -4397,6 +4438,7 @@ impl HeadlessServer {
         if self.has_app_client() {
             self.app.start_git_status_refresh_if_due(now);
         }
+        self.app.ensure_media_watchers();
 
         if self
             .app
@@ -4956,7 +4998,9 @@ mod tests {
     }
 
     fn test_headless_server_with_event_hub(event_hub: api::EventHub) -> HeadlessServer {
-        let config = crate::config::Config::default();
+        let mut config = crate::config::Config::default();
+        // These protocol/render fixtures characterize the upstream terminal geometry.
+        config.ui.media_panel_start_collapsed = true;
         let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
         let mut app = crate::app::App::new(&config, true, None, api_rx, event_hub);
         app.state.local_sound_playback = false;
@@ -5261,6 +5305,36 @@ mod tests {
             control_rx,
             render_rx,
         )
+    }
+
+    #[tokio::test]
+    async fn media_clipboard_uses_attached_terminal_workspace_not_active_workspace() {
+        let (mut server, _rx, _) = retained_test_server(b"");
+        let root =
+            std::env::temp_dir().join(format!("herdr-media-clipboard-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let root = root.canonicalize().unwrap();
+        server.app.state.workspaces[0].identity_cwd = root.join("active");
+        let mut other = crate::workspace::Workspace::test_new("attached");
+        other.identity_cwd = root.join("attached");
+        let terminal_id = other
+            .pane_state(other.focused_pane_id().unwrap())
+            .unwrap()
+            .attached_terminal_id
+            .to_string();
+        server.app.state.workspaces.push(other);
+        let mut client = test_app_client(Some(true), 2);
+        client.mode = ClientConnectionMode::TerminalAttach { terminal_id };
+        server.clients.insert(2, client);
+        let pasted = server
+            .write_client_clipboard_image(2, "png", b"image")
+            .unwrap();
+        assert!(pasted.contains("attached/media/"), "{pasted}");
+        assert!(!root.join("active/media").exists());
+        let files = crate::media::files::scan(&root.join("attached/media"));
+        assert_eq!(files.len(), 1);
+        assert_eq!(std::fs::read(&files[0]).unwrap(), b"image");
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     fn retained_test_server(

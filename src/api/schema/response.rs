@@ -51,6 +51,11 @@ pub enum ResponseResult {
     SessionSnapshot {
         snapshot: Box<SessionSnapshot>,
     },
+    WorkspaceMedia {
+        directory: String,
+        collect_outputs: bool,
+        files: Vec<super::media::MediaFileInfo>,
+    },
     WorkspaceInfo {
         workspace: WorkspaceInfo,
     },

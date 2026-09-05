@@ -3860,7 +3860,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn desktop_new_workspace_creates_immediately_by_default() {
+    async fn desktop_new_workspace_opens_project_setup_by_default() {
         let mut app = app_for_mouse_test();
         app.state.workspaces = vec![Workspace::test_new("one")];
         app.state.ensure_test_terminals();
@@ -3876,9 +3876,10 @@ mod tests {
             new_workspace.y,
         ));
 
-        assert_eq!(app.state.workspaces.len(), 2);
-        assert_eq!(app.state.mode, Mode::Terminal);
-        assert!(app.state.pending_workspace_create_cwd.is_none());
+        assert_eq!(app.state.workspaces.len(), 1);
+        assert_eq!(app.state.mode, Mode::RenameWorkspace);
+        assert!(app.state.pending_workspace_create_cwd.is_some());
+        assert!(app.state.media_ui.dialog.is_some());
         crate::app::api::test_support::shutdown_test_runtimes(&mut app);
     }
 

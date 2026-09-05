@@ -26,3 +26,6 @@ __pycache__/
 
 /.wrangler/
 **/.wrangler/
+
+# workspace media files (local only)
+/media/

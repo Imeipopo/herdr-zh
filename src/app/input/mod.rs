@@ -183,7 +183,7 @@ impl App {
         }
     }
 
-    pub(super) async fn handle_paste(&mut self, text: String) {
+    pub(super) async fn handle_paste(&mut self, mut text: String) {
         if self.state.popup_pane.is_some() {
             if let Some(runtime) = self.popup_runtime() {
                 let _ = runtime.send_paste(text).await;
@@ -198,6 +198,20 @@ impl App {
         }
 
         if let Some(ws_idx) = self.state.active {
+            if let Some(ws) = self.state.workspaces.get(ws_idx) {
+                text = match crate::media::capture_paths(
+                    &text,
+                    &ws.identity_cwd,
+                    &ws.id,
+                    &mut self.state.media_index,
+                ) {
+                    Ok(text) => text,
+                    Err(err) => {
+                        self.media_error(err.to_string());
+                        return;
+                    }
+                };
+            }
             if let Some(rt) = self
                 .state
                 .focused_runtime_in_workspace(&self.terminal_runtimes, ws_idx)
@@ -208,6 +222,10 @@ impl App {
     }
 
     pub(crate) fn paste_into_active_text_input(&mut self, text: &str) -> bool {
+        if self.state.media_ui.dialog.is_some() {
+            self.insert_media_text(text);
+            return true;
+        }
         match self.state.mode {
             Mode::RenameWorkspace | Mode::RenameTab | Mode::RenamePane => {
                 insert_rename_input_text(&mut self.state, text);
@@ -356,6 +374,10 @@ impl App {
             self.handle_popup_mouse(mouse);
             return;
         }
+        if self.state.media_ui.dialog.is_some() {
+            self.handle_media_mouse(mouse);
+            return;
+        }
         if self.handle_overlay_mouse(mouse) {
             return;
         }
@@ -378,6 +400,10 @@ impl App {
                 self.state.drag = None;
                 return;
             }
+        }
+
+        if self.handle_media_mouse(mouse) {
+            return;
         }
 
         if self.handle_modified_url_click(source_id, mouse) {

@@ -73,6 +73,7 @@ mod ipc;
 mod kitty_graphics;
 mod layout;
 mod logging;
+mod media;
 mod metadata_tokens;
 mod noninteractive_process;
 mod pane;
@@ -264,6 +265,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 
 # Start with the sidebar collapsed. Changes take effect on the next launch.
 # sidebar_start_collapsed = false
+
+# Start with the project media timeline collapsed.
+# media_panel_start_collapsed = false
 
 # Collapsed sidebar presentation: "compact" keeps the narrow status rail, "hidden" uses zero width.
 # sidebar_collapsed_mode = "compact"

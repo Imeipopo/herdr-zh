@@ -49,6 +49,38 @@ pub(crate) fn stage(
     ))
 }
 
+pub(crate) fn store_in_project_media(
+    project_dir: &Path,
+    extension: &str,
+    data: &[u8],
+) -> io::Result<PathBuf> {
+    let extension = sanitize_extension(extension);
+    let dir = crate::media::directory(project_dir);
+    fs::create_dir_all(&dir)?;
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+
+    for attempt in 0..100 {
+        let path = dir.join(format!("pasted-image-{unique}-{attempt}.{extension}"));
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        let mut file = match options.open(&path) {
+            Ok(file) => file,
+            Err(err) if err.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err),
+        };
+        file.write_all(data)?;
+        return Ok(path);
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "failed to allocate project media path",
+    ))
+}
+
 pub(crate) fn remove_files(paths: Vec<PathBuf>) {
     for path in paths {
         let _ = fs::remove_file(path);
@@ -143,5 +175,21 @@ mod tests {
         assert_eq!(sanitize_extension("jpeg"), "jpg");
         assert_eq!(sanitize_extension("webp"), "webp");
         assert_eq!(sanitize_extension("sh"), "png");
+    }
+
+    #[test]
+    fn stores_clipboard_image_in_project_media_directory() {
+        let project_dir = std::env::temp_dir().join(format!(
+            "herdr-project-media-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let path = store_in_project_media(&project_dir, "png", b"image bytes").unwrap();
+        assert!(path.starts_with(project_dir.join(crate::media::DROPPED_FILES_DIR)));
+        assert_eq!(fs::read(&path).unwrap(), b"image bytes");
+        let _ = fs::remove_dir_all(project_dir);
     }
 }

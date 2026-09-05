@@ -42,6 +42,10 @@ pub(crate) fn rename_button_rects(inner: Rect) -> (Rect, Rect, Rect) {
 }
 
 pub(super) fn render_rename_overlay(app: &AppState, frame: &mut Frame, area: Rect) {
+    if app.media_ui.dialog.is_some() {
+        super::media_panel::render_media_dialog(app, frame, area);
+        return;
+    }
     super::dim_background(frame, area);
 
     let title = match app.mode {

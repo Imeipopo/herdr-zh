@@ -183,6 +183,7 @@ def parse_enum_body(
     variants: list[str] = []
     index = start
     depth = 0
+    attrs: list[str] = []
 
     while index < len(lines):
         stripped = lines[index].strip()
@@ -190,11 +191,21 @@ def parse_enum_body(
             index += 1
             break
 
+        if depth == 0 and stripped.startswith("#["):
+            attrs.append(stripped)
+            index += 1
+            continue
+        if attrs and not attrs[-1].endswith("]"):
+            attrs[-1] += " " + stripped
+            index += 1
+            continue
+
         depth += stripped.count("{") - stripped.count("}")
         if depth == 0 and not stripped.startswith(("#[", "///")):
             match = VARIANT_RE.match(stripped)
             if match:
-                variants.append(apply_rename_all(match.group(1), rename_all or "lowercase"))
+                variants.append(serde_field_name(match.group(1), attrs, rename_all or "lowercase"))
+                attrs = []
         index += 1
 
     model.enums[name] = variants

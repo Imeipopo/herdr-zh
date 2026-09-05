@@ -125,6 +125,18 @@ impl App {
     }
 
     pub(crate) fn handle_navigate_key(&mut self, raw_key: TerminalKey) {
+        if raw_key.as_key_event().code == KeyCode::Char('M') {
+            self.open_media_settings();
+            return;
+        }
+        if raw_key.as_key_event().code == KeyCode::Char(' ') {
+            if let Some(path) = self.state.media_ui.selected.clone() {
+                if let Err(err) = crate::platform::preview_path(&path) {
+                    self.media_error(err.to_string());
+                }
+                return;
+            }
+        }
         let key = raw_key.as_key_event();
         self.state.update_dismissed = true;
 
@@ -385,6 +397,10 @@ impl App {
             NavigateAction::EnterResizeMode => self.state.mode = Mode::Resize,
             NavigateAction::ToggleSidebar => {
                 self.state.sidebar_collapsed = !self.state.sidebar_collapsed;
+                leave_navigate_mode(&mut self.state);
+            }
+            NavigateAction::ToggleMediaPanel => {
+                self.state.media_panel_collapsed = !self.state.media_panel_collapsed;
                 leave_navigate_mode(&mut self.state);
             }
             NavigateAction::CyclePaneNext => {
@@ -1264,6 +1280,9 @@ fn navigate_reserved_action_for_key(state: &AppState, key: &TerminalKey) -> Opti
             }
             KeyCode::Tab => return Some(NavigateAction::CyclePaneNext),
             KeyCode::BackTab => return Some(NavigateAction::CyclePanePrevious),
+            // Not yet a configurable keybinding (see media panel plan
+            // follow-up); reserved here the same way Enter/Tab/arrows are.
+            KeyCode::Char('m') => return Some(NavigateAction::ToggleMediaPanel),
             KeyCode::Left => return Some(NavigateAction::FocusPaneLeft),
             KeyCode::Right => return Some(NavigateAction::FocusPaneRight),
             _ => {}
@@ -1367,6 +1386,7 @@ pub(crate) enum NavigateAction {
     Zoom,
     EnterResizeMode,
     ToggleSidebar,
+    ToggleMediaPanel,
     CyclePaneNext,
     CyclePanePrevious,
     LastPane,
@@ -1745,6 +1765,10 @@ pub(super) fn execute_navigate_action_in_context(
             state.sidebar_collapsed = !state.sidebar_collapsed;
             leave_navigate_mode(state);
         }
+        NavigateAction::ToggleMediaPanel => {
+            state.media_panel_collapsed = !state.media_panel_collapsed;
+            leave_navigate_mode(state);
+        }
         NavigateAction::CyclePaneNext => {
             state.cycle_pane(false);
             leave_navigate_mode(state);
@@ -2081,7 +2105,6 @@ mod tests {
     async fn new_workspace_key_opens_prefilled_prompt_and_preserves_captured_cwd() {
         let cwd = unique_temp_path("workspace-name-suggestion");
         std::fs::create_dir_all(&cwd).unwrap();
-        let suggested_name = crate::workspace::derive_label_from_cwd(&cwd);
         let mut app = app_with_test_workspaces(&["test"]);
         app.state.new_terminal_cwd =
             crate::config::NewTerminalCwdConfig::Path(cwd.display().to_string());
@@ -2092,9 +2115,10 @@ mod tests {
         app.handle_navigate_key(TerminalKey::new(KeyCode::Char('g'), KeyModifiers::empty()));
 
         assert_eq!(app.state.mode, Mode::RenameWorkspace);
-        assert_eq!(app.state.name_input, suggested_name);
+        assert!(app.state.name_input.starts_with("project-"));
         assert!(app.state.name_input_replace_on_type);
-        assert_eq!(app.state.pending_workspace_create_cwd.as_ref(), Some(&cwd));
+        let project_dir = app.state.pending_workspace_create_cwd.clone().unwrap();
+        assert!(project_dir.starts_with(crate::media::projects_root()));
         assert_eq!(app.state.workspaces.len(), 1);
 
         app.state.new_terminal_cwd =
@@ -2102,11 +2126,16 @@ mod tests {
         app.handle_rename_key_via_api(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()));
 
         assert_eq!(app.state.workspaces.len(), 2);
-        assert_eq!(app.state.workspaces[1].identity_cwd, cwd);
+        assert_eq!(app.state.workspaces[1].identity_cwd, project_dir);
+        assert!(app.state.workspaces[1]
+            .identity_cwd
+            .join(crate::media::DROPPED_FILES_DIR)
+            .is_dir());
         assert!(app.state.workspaces[1].custom_name.is_none());
         assert!(app.state.pending_workspace_create_cwd.is_none());
         assert_eq!(app.state.mode, Mode::Terminal);
         crate::app::api::test_support::shutdown_test_runtimes(&mut app);
+        let _ = std::fs::remove_dir_all(&app.state.workspaces[1].identity_cwd);
         let _ = std::fs::remove_dir_all(&cwd);
     }
 
@@ -2121,13 +2150,21 @@ mod tests {
         app.state.mode = Mode::Navigate;
 
         app.execute_tui_navigate_action(NavigateAction::NewWorkspace, ActionContext::Navigate);
-        app.state.name_input = "  logs  ".into();
+        app.insert_media_text("logs");
         app.handle_rename_key_via_api(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()));
 
         assert_eq!(app.state.workspaces.len(), 2);
-        assert_eq!(app.state.workspaces[1].custom_name.as_deref(), Some("logs"));
-        assert_eq!(app.state.workspaces[1].identity_cwd, cwd);
+        assert_eq!(app.state.workspaces[1].display_name(), "logs");
+        assert_eq!(
+            app.state.workspaces[1].identity_cwd,
+            crate::media::projects_root().join("logs")
+        );
+        assert!(app.state.workspaces[1]
+            .identity_cwd
+            .join(crate::media::DROPPED_FILES_DIR)
+            .is_dir());
         crate::app::api::test_support::shutdown_test_runtimes(&mut app);
+        let _ = std::fs::remove_dir_all(&app.state.workspaces[1].identity_cwd);
         let _ = std::fs::remove_dir_all(&cwd);
     }
 
@@ -2795,8 +2832,9 @@ command = "printf literal > '{}'"
 
         app.handle_navigate_key(TerminalKey::new(KeyCode::Char('n'), KeyModifiers::SHIFT));
 
-        assert_eq!(app.state.workspaces.len(), 2);
-        assert_eq!(app.state.mode, Mode::Terminal);
+        assert_eq!(app.state.workspaces.len(), 1);
+        assert_eq!(app.state.mode, Mode::RenameWorkspace);
+        assert!(app.state.media_ui.dialog.is_some());
     }
 
     #[tokio::test]
@@ -2816,8 +2854,9 @@ command = "printf literal > '{}'"
 
         app.handle_navigate_key(TerminalKey::new(KeyCode::Char('N'), KeyModifiers::empty()));
 
-        assert_eq!(app.state.workspaces.len(), 2);
-        assert_eq!(app.state.mode, Mode::Terminal);
+        assert_eq!(app.state.workspaces.len(), 1);
+        assert_eq!(app.state.mode, Mode::RenameWorkspace);
+        assert!(app.state.media_ui.dialog.is_some());
     }
 
     #[tokio::test]

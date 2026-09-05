@@ -156,4 +156,10 @@ pub enum AppEvent {
     WorktreeAddFinished(Box<WorktreeAddResult>),
     /// Background `git worktree remove` completed.
     WorktreeRemoveFinished(Box<WorktreeRemoveResult>),
+    /// Complete media inventory observed by the server worker.
+    MediaFilesObserved {
+        workspace_id: String,
+        directory: std::path::PathBuf,
+        paths: Vec<std::path::PathBuf>,
+    },
 }

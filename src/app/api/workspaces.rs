@@ -11,6 +11,153 @@ use super::super::api_helpers::{normalize_metadata_source, normalize_metadata_tt
 use super::responses::{encode_error, encode_success};
 
 impl App {
+    pub(super) fn handle_project_create(
+        &mut self,
+        id: String,
+        params: crate::api::schema::ProjectCreateParams,
+    ) -> String {
+        let root = match crate::media::expand_path(&params.path) {
+            Ok(path) => path,
+            Err(err) => return encode_error(id, "project_path_invalid", err.to_string()),
+        };
+        if params.label.trim().is_empty() {
+            return encode_error(id, "project_name_required", "Workspace name is required");
+        }
+        if params.open_existing {
+            if !root.is_dir() {
+                return encode_error(id, "project_not_found", "Choose an existing project folder");
+            }
+        } else {
+            if let Some(parent) = root.parent() {
+                if let Err(err) = std::fs::create_dir_all(parent) {
+                    return encode_error(id, "project_create_failed", err.to_string());
+                }
+            }
+            if let Err(err) = std::fs::create_dir(&root) {
+                return encode_error(
+                    id,
+                    "project_create_failed",
+                    format!("{err}; use Open existing to bind an existing folder"),
+                );
+            }
+        }
+        if let Err(err) = crate::media::initialize_project(&root) {
+            return encode_error(id, "project_initialize_failed", err.to_string());
+        }
+        let settings = if params.open_existing {
+            crate::media::MediaSettings::load(&root)
+        } else {
+            crate::media::MediaSettings {
+                directory: root.join("media"),
+                collect_outputs: true,
+            }
+        };
+        if let Err(err) = settings.save(&root, false) {
+            return encode_error(id, "media_config_failed", err.to_string());
+        }
+        self.handle_workspace_create(
+            id,
+            crate::api::schema::WorkspaceCreateParams {
+                cwd: Some(root.display().to_string()),
+                focus: true,
+                label: if crate::workspace::derive_label_from_cwd(&root) == params.label.trim() {
+                    None
+                } else {
+                    Some(params.label.trim().to_owned())
+                },
+                env: Default::default(),
+            },
+        )
+    }
+
+    pub(super) fn handle_media_get(
+        &mut self,
+        id: String,
+        target: crate::api::schema::WorkspaceTarget,
+    ) -> String {
+        let Some(index) = self.parse_workspace_id(&target.workspace_id) else {
+            return workspace_not_found(id, &target.workspace_id);
+        };
+        let Some(ws) = self.state.workspaces.get(index) else {
+            return workspace_not_found(id, &target.workspace_id);
+        };
+        let settings = crate::media::MediaSettings::load(&ws.identity_cwd);
+        self.state
+            .media_index
+            .reconcile(&ws.id, crate::media::files::scan(&settings.directory));
+        let files = self
+            .state
+            .media_index
+            .entries_for(&ws.id)
+            .iter()
+            .map(|entry| crate::api::schema::MediaFileInfo {
+                path: entry.path.display().to_string(),
+                kind: match entry.kind {
+                    crate::media::MediaKind::Image => "image",
+                    _ => "document",
+                }
+                .to_owned(),
+                modified_unix_seconds: entry
+                    .added_at
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            })
+            .collect();
+        encode_success(
+            id,
+            crate::api::schema::ResponseResult::WorkspaceMedia {
+                directory: settings.directory.display().to_string(),
+                collect_outputs: settings.collect_outputs,
+                files,
+            },
+        )
+    }
+
+    pub(super) fn handle_media_set(
+        &mut self,
+        id: String,
+        params: crate::api::schema::WorkspaceMediaSetParams,
+    ) -> String {
+        let Some(index) = self.parse_workspace_id(&params.workspace_id) else {
+            return workspace_not_found(id, &params.workspace_id);
+        };
+        let Some(ws) = self.state.workspaces.get(index) else {
+            return workspace_not_found(id, &params.workspace_id);
+        };
+        let root = ws.identity_cwd.clone();
+        let directory = match crate::media::expand_path(&params.directory) {
+            Ok(path) => path,
+            Err(err) => return encode_error(id, "media_path_invalid", err.to_string()),
+        };
+        let settings = crate::media::MediaSettings {
+            directory,
+            collect_outputs: params.collect_outputs,
+        };
+        if let Err(err) = crate::media::initialize_project(&root)
+            .and_then(|()| settings.save(&root, params.copy_existing))
+        {
+            return encode_error(id, "media_config_failed", err.to_string());
+        }
+        let affected: Vec<_> = self
+            .state
+            .workspaces
+            .iter()
+            .filter(|ws| ws.identity_cwd == root)
+            .map(|ws| ws.id.clone())
+            .collect();
+        for id in affected {
+            self.media_watchers.remove(&id);
+        }
+        self.ensure_media_watchers();
+        self.handle_media_get(
+            id,
+            crate::api::schema::WorkspaceTarget {
+                workspace_id: params.workspace_id,
+            },
+        )
+    }
+
     pub(super) fn handle_workspace_list(&mut self, id: String) -> String {
         encode_success(
             id,
@@ -352,6 +499,102 @@ fn workspace_not_found(id: String, workspace_id: &str) -> String {
 mod tests {
     use super::*;
     use crate::{api::schema::SuccessResponse, config::Config, workspace::Workspace};
+
+    #[tokio::test]
+    async fn media_configuration_isolated_and_stale_inventory_ignored() {
+        let root = std::env::temp_dir().join(format!("herdr-media-api-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let root = root.canonicalize().unwrap();
+        let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut app = App::new(
+            &Config::default(),
+            true,
+            None,
+            rx,
+            crate::api::EventHub::default(),
+        );
+        app.state.workspaces = vec![Workspace::test_new("one"), Workspace::test_new("two")];
+        for (i, ws) in app.state.workspaces.iter_mut().enumerate() {
+            ws.identity_cwd = root.join(i.to_string());
+            std::fs::create_dir_all(&ws.identity_cwd).unwrap();
+        }
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.ensure_test_terminals();
+        let id = app.public_workspace_id(0);
+        let first_root = app.state.workspaces[0].identity_cwd.clone();
+        let old_media = first_root.join("media");
+        std::fs::create_dir(&old_media).unwrap();
+        std::fs::write(old_media.join("old.pdf"), b"pdf").unwrap();
+        let destination = first_root.join("attachments");
+        let result = app.handle_media_set(
+            "set".into(),
+            crate::api::schema::WorkspaceMediaSetParams {
+                workspace_id: id.clone(),
+                directory: destination.display().to_string(),
+                collect_outputs: false,
+                copy_existing: true,
+            },
+        );
+        let response: SuccessResponse = serde_json::from_str(&result).unwrap();
+        assert!(
+            matches!(response.result, ResponseResult::WorkspaceMedia { ref files, .. } if files.len() == 1)
+        );
+        assert_eq!(
+            crate::media::directory(&app.state.workspaces[1].identity_cwd),
+            app.state.workspaces[1].identity_cwd.join("media")
+        );
+        app.state
+            .handle_app_event(crate::events::AppEvent::MediaFilesObserved {
+                workspace_id: app.state.workspaces[0].id.clone(),
+                directory: old_media.clone(),
+                paths: vec![],
+            });
+        assert_eq!(
+            app.state
+                .media_index
+                .entries_for(&app.state.workspaces[0].id)
+                .len(),
+            1
+        );
+        assert!(old_media.join("old.pdf").exists());
+        app.state.assert_invariants_for_test();
+        app.media_watchers.clear();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn media_project_create_refuses_existing_directory_without_explicit_open() {
+        let root = std::env::temp_dir().join(format!("herdr-project-api-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("AGENTS.md"), "original rules").unwrap();
+        let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut app = App::new(
+            &Config::default(),
+            true,
+            None,
+            rx,
+            crate::api::EventHub::default(),
+        );
+        let result = app.handle_project_create(
+            "create".into(),
+            crate::api::schema::ProjectCreateParams {
+                path: root.display().to_string(),
+                label: "test".into(),
+                open_existing: false,
+            },
+        );
+        assert!(serde_json::from_str::<serde_json::Value>(&result)
+            .unwrap()
+            .get("error")
+            .is_some());
+        assert_eq!(
+            std::fs::read_to_string(root.join("AGENTS.md")).unwrap(),
+            "original rules"
+        );
+        assert!(!root.join("media").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     // `new_cwd = follow` must anchor on the focused pane for every creation
     // surface. Splits and tabs already do; a new workspace must follow the

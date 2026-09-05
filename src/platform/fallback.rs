@@ -102,6 +102,13 @@ pub fn open_url(_url: &str) -> std::io::Result<()> {
     ))
 }
 
+pub fn preview_path(_path: &std::path::Path) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "previewing files is not supported on this platform",
+    ))
+}
+
 /// Unsupported platform stub.
 // Windows does not wire clipboard-image bridging into semantic input yet.
 #[cfg_attr(windows, allow(dead_code))]
